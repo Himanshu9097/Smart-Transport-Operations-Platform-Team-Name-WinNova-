@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import GPSCard from '../components/GPSTracking';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LogOut, Plus, Search, Truck, Users, Calendar, 
   Settings, LayoutGrid, Wrench, Shield, Check, Info, AlertTriangle,
   Play, Sparkles, MapPin, Gauge, Fuel, Thermometer, ArrowRight, X, UserPlus,
-  TrendingUp, CircleDollarSign, Download
+  TrendingUp, CircleDollarSign, Download, Trash2
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, 
@@ -14,6 +15,24 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 import logo from '../assets/favicon.png';
+
+const getDocStatus = (expiryDateStr) => {
+  if (!expiryDateStr) return { label: 'Pending Date', color: 'text-clay-muted bg-clay-canvas' };
+  const today = new Date();
+  const exp = new Date(expiryDateStr);
+  if (isNaN(exp.getTime())) return { label: 'Invalid Date', color: 'text-red-500 bg-red-100' };
+  
+  const diffTime = exp.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return { label: 'Expired', color: 'text-red-600 bg-red-100 font-extrabold animate-pulse' };
+  } else if (diffDays <= 30) {
+    return { label: 'Expiring Soon', color: 'text-amber-600 bg-amber-100 font-extrabold' };
+  } else {
+    return { label: 'Valid', color: 'text-emerald-600 bg-emerald-100 font-extrabold' };
+  }
+};
 
 export default function Console() {
   const { user, token, logout } = useAuth();
@@ -83,6 +102,49 @@ export default function Console() {
   const [newVendor, setNewVendor] = useState('');
   const [newWarrantyExpiry, setNewWarrantyExpiry] = useState('');
   const [newLeaseType, setNewLeaseType] = useState('Owned');
+
+  // New Indian System / Status & Fuel fields
+  const [newAssignedDriver, setNewAssignedDriver] = useState('');
+  const [newDepotLocation, setNewDepotLocation] = useState('');
+  const [newFuelType, setNewFuelType] = useState('Diesel');
+  const [newFuelCardNumber, setNewFuelCardNumber] = useState('');
+  const [newMileage, setNewMileage] = useState('');
+  const [newAvgMonthlyFuelConsumption, setNewAvgMonthlyFuelConsumption] = useState('');
+  const [newVehicleStatus, setNewVehicleStatus] = useState('available');
+
+  // Insurance Information states
+  const [insCompany, setInsCompany] = useState('');
+  const [insPolicyNumber, setInsPolicyNumber] = useState('');
+  const [insCoverageAmount, setInsCoverageAmount] = useState('');
+  const [insStartDate, setInsStartDate] = useState('');
+  const [insExpiryDate, setInsExpiryDate] = useState('');
+  const [insReminderDays, setInsReminderDays] = useState('30');
+
+  // Vehicle Documents states
+  const [showDocSection, setShowDocSection] = useState(false);
+  const [rcFile, setRcFile] = useState('');
+  const [rcIssue, setRcIssue] = useState('');
+  const [rcExpiry, setRcExpiry] = useState('');
+
+  const [insFile, setInsFile] = useState('');
+  const [insIssue, setInsIssue] = useState('');
+  const [insExpiry, setInsExpiry] = useState('');
+
+  const [polFile, setPolFile] = useState('');
+  const [polIssue, setPolIssue] = useState('');
+  const [polExpiry, setPolExpiry] = useState('');
+
+  const [fitFile, setFitFile] = useState('');
+  const [fitIssue, setFitIssue] = useState('');
+  const [fitExpiry, setFitExpiry] = useState('');
+
+  const [perFile, setPerFile] = useState('');
+  const [perIssue, setPerIssue] = useState('');
+  const [perExpiry, setPerExpiry] = useState('');
+
+  const [taxFile, setTaxFile] = useState('');
+  const [taxIssue, setTaxIssue] = useState('');
+  const [taxExpiry, setTaxExpiry] = useState('');
 
   // Form states - Driver
   const [dName, setDName] = useState('');
@@ -199,7 +261,32 @@ export default function Console() {
           purchaseCost: newPurchaseCost,
           vendor: newVendor,
           warrantyExpiry: newWarrantyExpiry,
-          leaseType: newLeaseType
+          leaseType: newLeaseType,
+
+          status: newVehicleStatus,
+          assignedDriver: newAssignedDriver || null,
+          depotLocation: newDepotLocation,
+          fuelType: newFuelType,
+          fuelCardNumber: newFuelCardNumber,
+          mileage: newMileage ? Number(newMileage) : undefined,
+          avgMonthlyFuelConsumption: newAvgMonthlyFuelConsumption ? Number(newAvgMonthlyFuelConsumption) : undefined,
+
+          insurance: {
+            company: insCompany,
+            policyNumber: insPolicyNumber,
+            coverageAmount: insCoverageAmount ? Number(insCoverageAmount) : undefined,
+            startDate: insStartDate,
+            expiryDate: insExpiryDate,
+            reminderDays: insReminderDays ? Number(insReminderDays) : undefined
+          },
+          documents: {
+            rc: { fileName: rcFile || (rcExpiry ? 'RC_Doc.pdf' : ''), issueDate: rcIssue, expiryDate: rcExpiry },
+            insurance: { fileName: insFile || (insExpiry ? 'Insurance_Doc.pdf' : ''), issueDate: insIssue, expiryDate: insExpiry },
+            pollution: { fileName: polFile || (polExpiry ? 'PUC_Doc.pdf' : ''), issueDate: polIssue, expiryDate: polExpiry },
+            fitness: { fileName: fitFile || (fitExpiry ? 'Fitness_Doc.pdf' : ''), issueDate: fitIssue, expiryDate: fitExpiry },
+            permit: { fileName: perFile || (perExpiry ? 'Permit_Doc.pdf' : ''), issueDate: perIssue, expiryDate: perExpiry },
+            tax: { fileName: taxFile || (taxExpiry ? 'Tax_Doc.pdf' : ''), issueDate: taxIssue, expiryDate: taxExpiry }
+          }
         })
       });
       const data = await response.json();
@@ -211,12 +298,47 @@ export default function Console() {
         setNewSeatingCapacity(''); setNewCargoCapacity(''); setNewMaxGrossWeight(''); setNewFuelTankCapacity('');
         setNewOwnerName(''); setNewPurchaseDate(''); setNewPurchaseCost(''); setNewVendor('');
         setNewWarrantyExpiry(''); setNewLeaseType('Owned');
+
+        setNewAssignedDriver(''); setNewDepotLocation(''); setNewFuelType('Diesel');
+        setNewFuelCardNumber(''); setNewMileage(''); setNewAvgMonthlyFuelConsumption('');
+        setNewVehicleStatus('available');
+
+        setInsCompany(''); setInsPolicyNumber(''); setInsCoverageAmount(''); setInsStartDate(''); setInsExpiryDate(''); setInsReminderDays('30');
+        setRcFile(''); setRcIssue(''); setRcExpiry('');
+        setInsFile(''); setInsIssue(''); setInsExpiry('');
+        setPolFile(''); setPolIssue(''); setPolExpiry('');
+        setFitFile(''); setFitIssue(''); setFitExpiry('');
+        setPerFile(''); setPerIssue(''); setPerExpiry('');
+        setTaxFile(''); setTaxIssue(''); setTaxExpiry('');
+        setShowDocSection(false);
         fetchData();
       } else {
         setSubmitError(data.message || 'Error adding vehicle');
       }
     } catch (err) {
       setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId) => {
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
+    try {
+      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedVehicle(null);
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting vehicle');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Server connection failure');
     }
   };
 
@@ -784,7 +906,7 @@ export default function Console() {
                       </div>
                       <div className="col-span-2">
                         <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider">Acquisition Cost</span>
-                        <p className="font-bold text-xs text-clay-foreground mt-0.5">${veh.cost.toLocaleString()}</p>
+                        <p className="font-bold text-xs text-clay-foreground mt-0.5">₹{veh.cost.toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -813,7 +935,7 @@ export default function Console() {
                     </div>
                     <div className="flex justify-between font-bold">
                       <span className="text-clay-muted">Acquisition Cost</span>
-                      <span>${selectedVehicle.cost.toLocaleString()}</span>
+                      <span>₹{selectedVehicle.cost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span className="text-clay-muted">Max Load Capacity</span>
@@ -876,7 +998,7 @@ export default function Console() {
                     {selectedVehicle.purchaseDate && (
                       <div className="flex justify-between font-bold">
                         <span className="text-clay-muted">Purchased</span>
-                        <span>{selectedVehicle.purchaseDate} (${Number(selectedVehicle.purchaseCost).toLocaleString()})</span>
+                        <span>{selectedVehicle.purchaseDate} (₹{Number(selectedVehicle.purchaseCost).toLocaleString()})</span>
                       </div>
                     )}
                     {selectedVehicle.warrantyExpiry && (
@@ -885,6 +1007,149 @@ export default function Console() {
                         <span>{selectedVehicle.warrantyExpiry}</span>
                       </div>
                     )}
+
+                    {/* Status & Location Section */}
+                    <div className="border-t border-slate-200/50 pt-3 space-y-2 text-left">
+                      <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Status & Location</span>
+                      <div className="flex justify-between font-bold">
+                        <span className="text-clay-muted">Current Status</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold ${
+                          selectedVehicle.status === 'available' ? 'bg-emerald-100 text-emerald-600' :
+                          selectedVehicle.status === 'on_trip' ? 'bg-sky-100 text-sky-600' :
+                          selectedVehicle.status === 'reserved' ? 'bg-amber-100 text-amber-600' :
+                          selectedVehicle.status === 'maintenance' ? 'bg-rose-100 text-rose-600 animate-pulse' :
+                          selectedVehicle.status === 'inactive' ? 'bg-slate-100 text-slate-600' :
+                          'bg-red-100 text-red-600'
+                        }`}>
+                          {selectedVehicle.status || 'Available'}
+                        </span>
+                      </div>
+                      {selectedVehicle.assignedDriver && (
+                        <div className="flex justify-between font-bold">
+                          <span className="text-clay-muted">Assigned Driver</span>
+                          <span>{selectedVehicle.assignedDriver.name || 'Unassigned'}</span>
+                        </div>
+                      )}
+                      {selectedVehicle.depotLocation && (
+                        <div className="flex justify-between font-bold">
+                          <span className="text-clay-muted">Depot Location</span>
+                          <span>{selectedVehicle.depotLocation}</span>
+                        </div>
+                      )}
+                      {selectedVehicle.lastUpdated && (
+                        <div className="flex justify-between font-bold">
+                          <span className="text-clay-muted">Last Updated</span>
+                          <span>{new Date(selectedVehicle.lastUpdated).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Fuel Details Section */}
+                    {(selectedVehicle.fuelType || selectedVehicle.fuelCardNumber || selectedVehicle.mileage || selectedVehicle.avgMonthlyFuelConsumption) && (
+                      <div className="border-t border-slate-200/50 pt-3 space-y-2 text-left">
+                        <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Fuel Information</span>
+                        <div className="flex justify-between font-bold">
+                          <span className="text-clay-muted">Fuel Type</span>
+                          <span>{selectedVehicle.fuelType || 'Diesel'}</span>
+                        </div>
+                        {selectedVehicle.fuelCardNumber && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Fuel Card No.</span>
+                            <span className="font-mono">{selectedVehicle.fuelCardNumber}</span>
+                          </div>
+                        )}
+                        {selectedVehicle.mileage && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Mileage</span>
+                            <span>{selectedVehicle.mileage} KM/L</span>
+                          </div>
+                        )}
+                        {selectedVehicle.avgMonthlyFuelConsumption && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Avg Monthly Usage</span>
+                            <span>{selectedVehicle.avgMonthlyFuelConsumption} Liters</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Insurance Policy Section */}
+                    {selectedVehicle.insurance?.company && (
+                      <div className="border-t border-slate-200/50 pt-3 space-y-2 text-left">
+                        <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Insurance Information</span>
+                        <div className="flex justify-between font-bold">
+                          <span className="text-clay-muted">Insurance Company</span>
+                          <span>{selectedVehicle.insurance.company}</span>
+                        </div>
+                        {selectedVehicle.insurance.policyNumber && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Policy No.</span>
+                            <span className="font-mono">{selectedVehicle.insurance.policyNumber}</span>
+                          </div>
+                        )}
+                        {selectedVehicle.insurance.coverageAmount && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Coverage Amount</span>
+                            <span>₹{Number(selectedVehicle.insurance.coverageAmount).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {selectedVehicle.insurance.startDate && (
+                          <div className="flex justify-between font-bold">
+                            <span className="text-clay-muted">Duration</span>
+                            <span>{selectedVehicle.insurance.startDate} to {selectedVehicle.insurance.expiryDate}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Uploaded Documents Section */}
+                    {selectedVehicle.documents && (
+                      <div className="border-t border-slate-200/50 pt-3 space-y-2 text-left">
+                        <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Compliance Documents</span>
+                        <div className="space-y-2 text-[11px]">
+                          {[
+                            { label: 'RC (Registration)', doc: selectedVehicle.documents.rc },
+                            { label: 'Insurance Policy', doc: selectedVehicle.documents.insurance },
+                            { label: 'Pollution Certificate (PUC)', doc: selectedVehicle.documents.pollution },
+                            { label: 'Fitness Certificate', doc: selectedVehicle.documents.fitness },
+                            { label: 'Road Permit', doc: selectedVehicle.documents.permit },
+                            { label: 'Tax Receipt', doc: selectedVehicle.documents.tax }
+                          ].map((item) => {
+                            if (!item.doc || !item.doc.expiryDate) return null;
+                            const statusBadge = getDocStatus(item.doc.expiryDate);
+                            return (
+                              <div key={item.label} className="p-2.5 bg-clay-canvas/60 rounded-xl border border-white/60 space-y-1 shadow-clayCard">
+                                <div className="flex justify-between items-center font-bold">
+                                  <span className="text-clay-foreground">{item.label}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold ${statusBadge.color}`}>
+                                    {statusBadge.label}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-clay-muted font-semibold">
+                                  {item.doc.fileName && <div>File: <span className="font-mono text-clay-foreground font-bold">{item.doc.fileName}</span></div>}
+                                  <div>Validity: <span className="text-clay-foreground font-bold">{item.doc.issueDate || 'N/A'}</span> to <span className="text-clay-foreground font-bold">{item.doc.expiryDate}</span></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GPS & Live Tracking Section */}
+                  <GPSCard vehicle={selectedVehicle} />
+
+                  {/* Red claymorphic Delete Vehicle Button */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-col space-y-3">
+                    <button
+                      onClick={() => handleDeleteVehicle(selectedVehicle._id)}
+                      className="w-full flex items-center justify-center gap-2 bg-gradient-to-br from-red-400 to-rose-600 text-white font-headline text-xs font-bold uppercase tracking-wider py-3.5 rounded-[20px] shadow-clayButton hover:shadow-[14px_14px_28px_rgba(239,68,68,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all duration-300 cursor-pointer"
+                      style={{ fontFamily: "Nunito, sans-serif" }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Vehicle</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1093,7 +1358,7 @@ export default function Console() {
                       {log.vehicle?.name} ({log.vehicle?.reg})
                     </h4>
                     <p className="text-xs text-clay-muted font-bold uppercase mt-1">Issue: {log.issue}</p>
-                    <p className="text-xs text-clay-muted font-bold uppercase">Estimated Cost: ${log.cost.toLocaleString()}</p>
+                    <p className="text-xs text-clay-muted font-bold uppercase">Estimated Cost: ₹{log.cost.toLocaleString()}</p>
                     <span className="font-mono text-[9px] text-clay-muted font-bold block mt-2">
                       LOGGED ON: {new Date(log.createdAt).toLocaleDateString()}
                     </span>
@@ -1188,11 +1453,11 @@ export default function Console() {
                   {reports.map(r => (
                     <tr key={r.vehicleId} className="hover:bg-slate-50/50 transition-colors">
                       <td className="py-4 font-headline uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>{r.name} ({r.reg})</td>
-                      <td className="py-4 text-clay-muted">${r.acquisitionCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-muted">${r.fuelCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-muted">${r.maintenanceCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-secondary">${r.totalOperationalCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-success">${r.revenue.toLocaleString()}</td>
+                      <td className="py-4 text-clay-muted">₹{r.acquisitionCost.toLocaleString()}</td>
+                      <td className="py-4 text-clay-muted">₹{r.fuelCost.toLocaleString()}</td>
+                      <td className="py-4 text-clay-muted">₹{r.maintenanceCost.toLocaleString()}</td>
+                      <td className="py-4 text-clay-secondary">₹{r.totalOperationalCost.toLocaleString()}</td>
+                      <td className="py-4 text-clay-success">₹{r.revenue.toLocaleString()}</td>
                       <td className="py-4 text-clay-muted">{r.distanceTraveled} KM</td>
                       <td className={`py-4 ${(r.roi >= 0) ? 'text-clay-primary' : 'text-red-500'}`}>
                         {(r.roi * 100).toFixed(2)}%
@@ -1282,7 +1547,7 @@ export default function Console() {
                     />
                   </div>
                   <div className="flex flex-col space-y-1">
-                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Acquisition Cost ($)</label>
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Acquisition Cost (₹)</label>
                     <input
                       type="number"
                       placeholder="e.g. 85000"
@@ -1292,18 +1557,6 @@ export default function Console() {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="flex flex-col space-y-1">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Odometer Reading (KM)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 12000"
-                    value={vOdometer}
-                    onChange={(e) => setVOdometer(e.target.value)}
-                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
-                    required
-                  />
                 </div>
 
                 {/* Extended Basic Info Section (Collaborator UI additions) */}
@@ -1489,7 +1742,7 @@ export default function Console() {
                       />
                     </div>
                     <div className="flex flex-col space-y-1">
-                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Purchase Cost ($)</label>
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Purchase Cost (₹)</label>
                       <input
                         type="text"
                         placeholder="e.g. 120000"
@@ -1519,6 +1772,279 @@ export default function Console() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Vehicle Status Section */}
+                <div className="border-t border-slate-100 pt-5">
+                  <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Vehicle Status & Assignment</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Status</label>
+                      <select
+                        value={newVehicleStatus}
+                        onChange={(e) => setNewVehicleStatus(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                      >
+                        <option value="available">Available</option>
+                        <option value="on_trip">On Trip</option>
+                        <option value="reserved">Reserved</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="retired">Retired</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Assigned Driver</label>
+                      <select
+                        value={newAssignedDriver}
+                        onChange={(e) => setNewAssignedDriver(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                      >
+                        <option value="">Unassigned</option>
+                        {drivers.map(drv => (
+                          <option key={drv._id} value={drv._id}>{drv.name} ({drv.license})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Depot Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Okhla Depot, New Delhi"
+                        value={newDepotLocation}
+                        onChange={(e) => setNewDepotLocation(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Current Odometer (KM)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 12000"
+                        value={vOdometer}
+                        onChange={(e) => setVOdometer(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fuel Information Section */}
+                <div className="border-t border-slate-100 pt-5">
+                  <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Fuel Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Fuel Type</label>
+                      <select
+                        value={newFuelType}
+                        onChange={(e) => setNewFuelType(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                      >
+                        <option value="Diesel">Diesel</option>
+                        <option value="Petrol">Petrol</option>
+                        <option value="Electric">Electric</option>
+                        <option value="CNG">CNG</option>
+                        <option value="Hybrid">Hybrid</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Fuel Card Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. FC-9088-293"
+                        value={newFuelCardNumber}
+                        onChange={(e) => setNewFuelCardNumber(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Mileage (KM/L)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="e.g. 15.5"
+                        value={newMileage}
+                        onChange={(e) => setNewMileage(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Avg Monthly Consumption (L)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 450"
+                        value={newAvgMonthlyFuelConsumption}
+                        onChange={(e) => setNewAvgMonthlyFuelConsumption(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Insurance Information Section */}
+                <div className="border-t border-slate-100 pt-5">
+                  <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Insurance Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Insurance Company</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. ICICI Lombard"
+                        value={insCompany}
+                        onChange={(e) => setInsCompany(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Policy Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. POL-9088-A"
+                        value={insPolicyNumber}
+                        onChange={(e) => setInsPolicyNumber(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Coverage Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 500000"
+                        value={insCoverageAmount}
+                        onChange={(e) => setInsCoverageAmount(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Reminder Before Expiry</label>
+                      <select
+                        value={insReminderDays}
+                        onChange={(e) => setInsReminderDays(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                      >
+                        <option value="7">7 Days</option>
+                        <option value="15">15 Days</option>
+                        <option value="30">30 Days</option>
+                        <option value="60">60 Days</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Start Date</label>
+                      <input
+                        type="date"
+                        value={insStartDate}
+                        onChange={(e) => setInsStartDate(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Expiry Date</label>
+                      <input
+                        type="date"
+                        value={insExpiryDate}
+                        onChange={(e) => setInsExpiryDate(e.target.value)}
+                        className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vehicle Documents Section */}
+                <div className="border-t border-slate-100 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setShowDocSection(!showDocSection)}
+                    className="w-full flex items-center justify-between bg-clay-canvas/60 hover:bg-clay-canvas p-4 rounded-[20px] font-headline font-black text-xs uppercase tracking-wider text-clay-primary shadow-clayCard active:scale-[0.99] transition-all cursor-pointer"
+                    style={{ fontFamily: "Nunito, sans-serif" }}
+                  >
+                    <span>Vehicle Documents</span>
+                    <span className="material-symbols-outlined transition-transform duration-300" style={{ transform: showDocSection ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      expand_more
+                    </span>
+                  </button>
+
+                  {showDocSection && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+                      {[
+                        { label: 'RC (Registration Certificate)', file: rcFile, setFile: setRcFile, issue: rcIssue, setIssue: setRcIssue, expiry: rcExpiry, setExpiry: setRcExpiry, prefix: 'rc' },
+                        { label: 'Insurance Policy', file: insFile, setFile: setInsFile, issue: insIssue, setIssue: setInsIssue, expiry: insExpiry, setExpiry: setInsExpiry, prefix: 'ins' },
+                        { label: 'Pollution Certificate (PUC)', file: polFile, setFile: setPolFile, issue: polIssue, setIssue: setPolIssue, expiry: polExpiry, setExpiry: setPolExpiry, prefix: 'pol' },
+                        { label: 'Fitness Certificate', file: fitFile, setFile: setFitFile, issue: fitIssue, setIssue: setFitIssue, expiry: fitExpiry, setExpiry: setFitExpiry, prefix: 'fit' },
+                        { label: 'Road Permit', file: perFile, setFile: setPerFile, issue: perIssue, setIssue: setPerIssue, expiry: perExpiry, setExpiry: setPerExpiry, prefix: 'per' },
+                        { label: 'Tax Receipt', file: taxFile, setFile: setTaxFile, issue: taxIssue, setIssue: setTaxIssue, expiry: taxExpiry, setExpiry: setTaxExpiry, prefix: 'tax' }
+                      ].map((doc) => {
+                        const statusObj = getDocStatus(doc.expiry);
+                        return (
+                          <div key={doc.prefix} className="bg-clay-canvas/40 p-4 rounded-[24px] border border-white/60 shadow-clayPressed flex flex-col space-y-3.5 text-xs text-left">
+                            <div className="flex justify-between items-start border-b border-slate-200/50 pb-2">
+                              <span className="font-headline font-black text-[11px] uppercase tracking-wide text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>
+                                {doc.label}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold ${statusObj.color}`}>
+                                {statusObj.label}
+                              </span>
+                            </div>
+
+                            {/* Styled File Upload Input */}
+                            <div className="flex flex-col space-y-1">
+                              <label className="font-mono text-[8px] font-black uppercase tracking-wider text-clay-muted">Document File</label>
+                              <div className="relative w-full h-10 bg-[#EFEBF5] rounded-[16px] shadow-clayPressed flex items-center justify-between px-3 cursor-pointer hover:bg-white transition-all overflow-hidden border border-transparent focus-within:border-clay-primary/20">
+                                <span className="text-[10px] text-clay-foreground font-semibold truncate pr-4">
+                                  {doc.file ? doc.file : 'Select file (PDF/Image)'}
+                                </span>
+                                <span className="bg-clay-primary text-white text-[9px] font-bold px-3 py-1 rounded-[10px] uppercase tracking-wider cursor-pointer shadow-clayButton">
+                                  Choose
+                                </span>
+                                <input
+                                  type="file"
+                                  accept=".pdf,.png,.jpg,.jpeg"
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      doc.setFile(e.target.files[0].name);
+                                    }
+                                  }}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex flex-col space-y-1">
+                                <label className="font-mono text-[8px] font-black uppercase tracking-wider text-clay-muted">Issue Date</label>
+                                <input
+                                  type="date"
+                                  value={doc.issue}
+                                  onChange={(e) => doc.setIssue(e.target.value)}
+                                  className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-2 py-2 rounded-[12px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-2 focus:ring-clay-primary/10 text-[10px]"
+                                />
+                              </div>
+                              <div className="flex flex-col space-y-1">
+                                <label className="font-mono text-[8px] font-black uppercase tracking-wider text-clay-muted">Expiry Date</label>
+                                <input
+                                  type="date"
+                                  value={doc.expiry}
+                                  onChange={(e) => doc.setExpiry(e.target.value)}
+                                  className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-2 py-2 rounded-[12px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-2 focus:ring-clay-primary/10 text-[10px]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1780,7 +2306,7 @@ export default function Console() {
               </div>
 
               <div className="flex flex-col space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Estimated Cost ($)</label>
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Estimated Cost (₹)</label>
                 <input
                   type="number"
                   placeholder="e.g. 1500"
@@ -1851,7 +2377,7 @@ export default function Console() {
                   </select>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cost Amount ($)</label>
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cost Amount (₹)</label>
                   <input
                     type="number"
                     placeholder="e.g. 350"

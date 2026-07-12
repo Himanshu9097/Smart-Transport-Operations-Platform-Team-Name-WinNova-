@@ -14,7 +14,7 @@ const { protect } = require('../middleware/authMiddleware');
 // @route   GET /api/vehicles
 router.get('/vehicles', protect, async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({});
+    const vehicles = await Vehicle.find({}).populate('assignedDriver');
     res.json({ success: true, count: vehicles.length, data: vehicles });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -39,6 +39,20 @@ router.post('/vehicles', protect, async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: vehicle });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   DELETE /api/vehicles/:id
+router.delete('/vehicles/:id', protect, async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+    await Vehicle.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Vehicle deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -117,8 +131,8 @@ router.post('/trips', protect, async (req, res) => {
 
     // --- Validation Rules Checks ---
     
-    // 1. Retired or In Shop vehicles must never appear in dispatch
-    if (vehicle.status === 'retired' || vehicle.status === 'in_shop') {
+    // 1. Retired, In Shop, Maintenance, or Inactive vehicles must never appear in dispatch
+    if (['retired', 'in_shop', 'maintenance', 'inactive'].includes(vehicle.status)) {
       return res.status(400).json({ 
         success: false, 
         message: `Vehicle status is '${vehicle.status}'. It cannot be assigned to a trip.` 
