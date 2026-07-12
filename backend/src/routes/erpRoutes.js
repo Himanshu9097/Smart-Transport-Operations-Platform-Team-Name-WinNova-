@@ -86,6 +86,50 @@ router.post('/vehicles', protect, async (req, res) => {
   }
 });
 
+// @route   PUT /api/vehicles/:id
+router.put('/vehicles/:id', protect, async (req, res) => {
+  try {
+    const { reg } = req.body;
+    const vehicle = await Vehicle.findById(req.params.id);
+
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    // Check unique reg if changed
+    if (reg && reg.toUpperCase() !== vehicle.reg) {
+      const vehicleExists = await Vehicle.findOne({ reg: reg.toUpperCase() });
+      if (vehicleExists) {
+        return res.status(400).json({ success: false, message: `Vehicle with registration ${reg} already exists` });
+      }
+      vehicle.reg = reg.toUpperCase();
+    }
+
+    const fieldsToUpdate = [
+      'name', 'type', 'maxLoad', 'odometer', 'cost', 'status',
+      'nickname', 'category', 'brand', 'model', 'mfgYear', 'color', 'vin', 'engineNum', 'regState', 'regDate',
+      'seatingCapacity', 'cargoCapacity', 'maxGrossWeight', 'fuelTankCapacity',
+      'ownerName', 'purchaseDate', 'purchaseCost', 'vendor', 'warrantyExpiry', 'leaseType',
+      'assignedDriver', 'depotLocation', 'fuelType', 'fuelCardNumber', 'mileage', 'avgMonthlyFuelConsumption',
+      'insurance', 'documents'
+    ];
+
+    fieldsToUpdate.forEach(field => {
+      if (req.body[field] !== undefined) {
+        vehicle[field] = req.body[field];
+      }
+    });
+
+    vehicle.lastUpdated = Date.now();
+
+    await vehicle.save();
+    const updatedVehicle = await Vehicle.findById(vehicle._id).populate('assignedDriver');
+    res.json({ success: true, data: updatedVehicle });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // @route   DELETE /api/vehicles/:id
 router.delete('/vehicles/:id', protect, async (req, res) => {
   try {

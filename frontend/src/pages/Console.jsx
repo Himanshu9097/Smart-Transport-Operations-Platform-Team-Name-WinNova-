@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LogOut, Plus, Search, Truck, Users, Calendar,
   Settings, LayoutGrid, Wrench, Shield, Check, Info, AlertTriangle,
-  Play, Sparkles, MapPin, Gauge, Fuel, Thermometer, ArrowRight, X, UserPlus,
-  TrendingUp, CircleDollarSign, Download
+  Play, Sparkles, MapPin, Gauge, Fuel, Thermometer, ArrowRight, ArrowLeft, X, UserPlus,
+  TrendingUp, CircleDollarSign, Download, Menu, Trash2
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -34,8 +34,20 @@ const getDocStatus = (expiryDateStr) => {
   }
 };
 
+// Stub: replace with real ImageKit integration when ready
+const uploadToImageKit = async (file, fileName) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result); // returns base64 data URL as placeholder
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+};
+
+
 export default function Console() {
   const { user, token, logout } = useAuth();
+
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -65,10 +77,14 @@ export default function Console() {
 
   // Selected details panel
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [activeVehicleProfileId, setActiveVehicleProfileId] = useState(null);
+  const [vehicleDossierTab, setVehicleDossierTab] = useState('documents');
 
   // Modals state
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
+  const [isEditVehicleMode, setIsEditVehicleMode] = useState(false);
+  const [editVehicleId, setEditVehicleId] = useState(null);
   const [showDispatchTrip, setShowDispatchTrip] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -249,102 +265,220 @@ export default function Console() {
     }
   }, [token]);
 
-  // Form submit handlers
+  // Reset and Edit Vehicle helpers
+  const resetVehicleForm = () => {
+    setVReg(''); setVName(''); setVMaxLoad(''); setVOdometer(''); setVCost('');
+    setNewNickname(''); setNewBrand(''); setNewModel(''); setNewMfgYear(''); setNewColor('');
+    setNewVin(''); setNewEngineNum(''); setNewRegState(''); setNewRegDate('');
+    setNewSeatingCapacity(''); setNewCargoCapacity(''); setNewMaxGrossWeight(''); setNewFuelTankCapacity('');
+    setNewOwnerName(''); setNewPurchaseDate(''); setNewPurchaseCost(''); setNewVendor('');
+    setNewWarrantyExpiry(''); setNewLeaseType('Owned');
+
+    setNewAssignedDriver(''); setNewDepotLocation(''); setNewFuelType('Diesel');
+    setNewFuelCardNumber(''); setNewMileage(''); setNewAvgMonthlyFuelConsumption('');
+    setNewVehicleStatus('available');
+
+    setInsCompany(''); setInsPolicyNumber(''); setInsCoverageAmount(''); setInsStartDate(''); setInsExpiryDate(''); setInsReminderDays('30');
+    setRcFile(''); setRcIssue(''); setRcExpiry('');
+    setInsFile(''); setInsIssue(''); setInsExpiry('');
+    setPolFile(''); setPolIssue(''); setPolExpiry('');
+    setFitFile(''); setFitIssue(''); setFitExpiry('');
+    setPerFile(''); setPerIssue(''); setPerExpiry('');
+    setTaxFile(''); setTaxIssue(''); setTaxExpiry('');
+    setShowDocSection(false);
+    setIsEditVehicleMode(false);
+    setEditVehicleId(null);
+  };
+
+  const startEditVehicle = (veh) => {
+    setSubmitError('');
+    setIsEditVehicleMode(true);
+    setEditVehicleId(veh._id);
+    
+    setVReg(veh.reg || '');
+    setVName(veh.name || '');
+    setVType(veh.type || 'Truck');
+    setVMaxLoad(veh.maxLoad !== undefined ? String(veh.maxLoad) : '');
+    setVOdometer(veh.odometer !== undefined ? String(veh.odometer) : '');
+    setVCost(veh.cost !== undefined ? String(veh.cost) : '');
+
+    setNewNickname(veh.nickname || '');
+    setNewBrand(veh.brand || '');
+    setNewModel(veh.model || '');
+    setNewMfgYear(veh.mfgYear || '');
+    setNewColor(veh.color || '');
+    setNewVin(veh.vin || '');
+    setNewEngineNum(veh.engineNum || '');
+    setNewRegState(veh.regState || '');
+    setNewRegDate(veh.regDate || '');
+
+    setNewSeatingCapacity(veh.seatingCapacity || '');
+    setNewCargoCapacity(veh.cargoCapacity || '');
+    setNewMaxGrossWeight(veh.maxGrossWeight || '');
+    setNewFuelTankCapacity(veh.fuelTankCapacity || '');
+
+    setNewOwnerName(veh.ownerName || '');
+    setNewPurchaseDate(veh.purchaseDate || '');
+    setNewPurchaseCost(veh.purchaseCost || '');
+    setNewVendor(veh.vendor || '');
+    setNewWarrantyExpiry(veh.warrantyExpiry || '');
+    setNewLeaseType(veh.leaseType || 'Owned');
+
+    setNewAssignedDriver(veh.assignedDriver?._id || veh.assignedDriver || '');
+    setNewDepotLocation(veh.depotLocation || '');
+    setNewFuelType(veh.fuelType || 'Diesel');
+    setNewFuelCardNumber(veh.fuelCardNumber || '');
+    setNewMileage(veh.mileage !== undefined ? String(veh.mileage) : '');
+    setNewAvgMonthlyFuelConsumption(veh.avgMonthlyFuelConsumption !== undefined ? String(veh.avgMonthlyFuelConsumption) : '');
+    setNewVehicleStatus(veh.status || 'available');
+
+    setInsCompany(veh.insurance?.company || '');
+    setInsPolicyNumber(veh.insurance?.policyNumber || '');
+    setInsCoverageAmount(veh.insurance?.coverageAmount !== undefined ? String(veh.insurance.coverageAmount) : '');
+    setInsStartDate(veh.insurance?.startDate || '');
+    setInsExpiryDate(veh.insurance?.expiryDate || '');
+    setInsReminderDays(veh.insurance?.reminderDays !== undefined ? String(veh.insurance.reminderDays) : '30');
+
+    setRcFile(veh.documents?.rc?.fileName || '');
+    setRcIssue(veh.documents?.rc?.issueDate || '');
+    setRcExpiry(veh.documents?.rc?.expiryDate || '');
+
+    setInsFile(veh.documents?.insurance?.fileName || '');
+    setInsIssue(veh.documents?.insurance?.issueDate || '');
+    setInsExpiry(veh.documents?.insurance?.expiryDate || '');
+
+    setPolFile(veh.documents?.pollution?.fileName || '');
+    setPolIssue(veh.documents?.pollution?.issueDate || '');
+    setPolExpiry(veh.documents?.pollution?.expiryDate || '');
+
+    setFitFile(veh.documents?.fitness?.fileName || '');
+    setFitIssue(veh.documents?.fitness?.issueDate || '');
+    setFitExpiry(veh.documents?.fitness?.expiryDate || '');
+
+    setPerFile(veh.documents?.permit?.fileName || '');
+    setPerIssue(veh.documents?.permit?.issueDate || '');
+    setPerExpiry(veh.documents?.permit?.expiryDate || '');
+
+    setTaxFile(veh.documents?.tax?.fileName || '');
+    setTaxIssue(veh.documents?.tax?.issueDate || '');
+    setTaxExpiry(veh.documents?.tax?.expiryDate || '');
+
+    setShowDocSection(!!(
+      veh.documents?.rc?.expiryDate || 
+      veh.documents?.insurance?.expiryDate ||
+      veh.documents?.pollution?.expiryDate ||
+      veh.documents?.fitness?.expiryDate ||
+      veh.documents?.permit?.expiryDate ||
+      veh.documents?.tax?.expiryDate
+    ));
+    setShowAddVehicle(true);
+  };
+
+  // Form submit handlers — handles both Add (POST) and Edit (PUT)
   const handleAddVehicleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
+    const payload = {
+      reg: vReg,
+      name: vName,
+      type: vType,
+      maxLoad: Number(vMaxLoad),
+      odometer: Number(vOdometer),
+      cost: Number(vCost),
+
+      nickname: newNickname,
+      category: vType,
+      brand: newBrand,
+      model: newModel,
+      mfgYear: newMfgYear,
+      color: newColor,
+      vin: newVin,
+      engineNum: newEngineNum,
+      regState: newRegState,
+      regDate: newRegDate,
+
+      seatingCapacity: newSeatingCapacity,
+      cargoCapacity: newCargoCapacity,
+      maxGrossWeight: newMaxGrossWeight,
+      fuelTankCapacity: newFuelTankCapacity,
+
+      ownerName: newOwnerName,
+      purchaseDate: newPurchaseDate,
+      purchaseCost: newPurchaseCost,
+      vendor: newVendor,
+      warrantyExpiry: newWarrantyExpiry,
+      leaseType: newLeaseType,
+
+      status: newVehicleStatus,
+      assignedDriver: newAssignedDriver || null,
+      depotLocation: newDepotLocation,
+      fuelType: newFuelType,
+      fuelCardNumber: newFuelCardNumber,
+      mileage: newMileage ? Number(newMileage) : undefined,
+      avgMonthlyFuelConsumption: newAvgMonthlyFuelConsumption ? Number(newAvgMonthlyFuelConsumption) : undefined,
+
+      insurance: {
+        company: insCompany,
+        policyNumber: insPolicyNumber,
+        coverageAmount: insCoverageAmount ? Number(insCoverageAmount) : undefined,
+        startDate: insStartDate,
+        expiryDate: insExpiryDate,
+        reminderDays: insReminderDays ? Number(insReminderDays) : undefined
+      },
+      documents: {
+        rc: { fileName: rcFile || (rcExpiry ? 'RC_Doc.pdf' : ''), issueDate: rcIssue, expiryDate: rcExpiry },
+        insurance: { fileName: insFile || (insExpiry ? 'Insurance_Doc.pdf' : ''), issueDate: insIssue, expiryDate: insExpiry },
+        pollution: { fileName: polFile || (polExpiry ? 'PUC_Doc.pdf' : ''), issueDate: polIssue, expiryDate: polExpiry },
+        fitness: { fileName: fitFile || (fitExpiry ? 'Fitness_Doc.pdf' : ''), issueDate: fitIssue, expiryDate: fitExpiry },
+        permit: { fileName: perFile || (perExpiry ? 'Permit_Doc.pdf' : ''), issueDate: perIssue, expiryDate: perExpiry },
+        tax: { fileName: taxFile || (taxExpiry ? 'Tax_Doc.pdf' : ''), issueDate: taxIssue, expiryDate: taxExpiry }
+      }
+    };
     try {
-      const response = await fetch('/api/vehicles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          reg: vReg,
-          name: vName,
-          type: vType,
-          maxLoad: Number(vMaxLoad),
-          odometer: Number(vOdometer),
-          cost: Number(vCost),
-
-          nickname: newNickname,
-          category: vType,
-          brand: newBrand,
-          model: newModel,
-          mfgYear: newMfgYear,
-          color: newColor,
-          vin: newVin,
-          engineNum: newEngineNum,
-          regState: newRegState,
-          regDate: newRegDate,
-
-          seatingCapacity: newSeatingCapacity,
-          cargoCapacity: newCargoCapacity,
-          maxGrossWeight: newMaxGrossWeight,
-          fuelTankCapacity: newFuelTankCapacity,
-
-          ownerName: newOwnerName,
-          purchaseDate: newPurchaseDate,
-          purchaseCost: newPurchaseCost,
-          vendor: newVendor,
-          warrantyExpiry: newWarrantyExpiry,
-          leaseType: newLeaseType,
-
-          status: newVehicleStatus,
-          assignedDriver: newAssignedDriver || null,
-          depotLocation: newDepotLocation,
-          fuelType: newFuelType,
-          fuelCardNumber: newFuelCardNumber,
-          mileage: newMileage ? Number(newMileage) : undefined,
-          avgMonthlyFuelConsumption: newAvgMonthlyFuelConsumption ? Number(newAvgMonthlyFuelConsumption) : undefined,
-
-          insurance: {
-            company: insCompany,
-            policyNumber: insPolicyNumber,
-            coverageAmount: insCoverageAmount ? Number(insCoverageAmount) : undefined,
-            startDate: insStartDate,
-            expiryDate: insExpiryDate,
-            reminderDays: insReminderDays ? Number(insReminderDays) : undefined
-          },
-          documents: {
-            rc: { fileName: rcFile || (rcExpiry ? 'RC_Doc.pdf' : ''), issueDate: rcIssue, expiryDate: rcExpiry },
-            insurance: { fileName: insFile || (insExpiry ? 'Insurance_Doc.pdf' : ''), issueDate: insIssue, expiryDate: insExpiry },
-            pollution: { fileName: polFile || (polExpiry ? 'PUC_Doc.pdf' : ''), issueDate: polIssue, expiryDate: polExpiry },
-            fitness: { fileName: fitFile || (fitExpiry ? 'Fitness_Doc.pdf' : ''), issueDate: fitIssue, expiryDate: fitExpiry },
-            permit: { fileName: perFile || (perExpiry ? 'Permit_Doc.pdf' : ''), issueDate: perIssue, expiryDate: perExpiry },
-            tax: { fileName: taxFile || (taxExpiry ? 'Tax_Doc.pdf' : ''), issueDate: taxIssue, expiryDate: taxExpiry }
-          }
-        })
+      const url = isEditVehicleMode ? `/api/vehicles/${editVehicleId}` : '/api/vehicles';
+      const method = isEditVehicleMode ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (data.success) {
         setShowAddVehicle(false);
-        setVReg(''); setVName(''); setVMaxLoad(''); setVOdometer(''); setVCost('');
-        setNewNickname(''); setNewBrand(''); setNewModel(''); setNewMfgYear(''); setNewColor('');
-        setNewVin(''); setNewEngineNum(''); setNewRegState(''); setNewRegDate('');
-        setNewSeatingCapacity(''); setNewCargoCapacity(''); setNewMaxGrossWeight(''); setNewFuelTankCapacity('');
-        setNewOwnerName(''); setNewPurchaseDate(''); setNewPurchaseCost(''); setNewVendor('');
-        setNewWarrantyExpiry(''); setNewLeaseType('Owned');
-
-        setNewAssignedDriver(''); setNewDepotLocation(''); setNewFuelType('Diesel');
-        setNewFuelCardNumber(''); setNewMileage(''); setNewAvgMonthlyFuelConsumption('');
-        setNewVehicleStatus('available');
-
-        setInsCompany(''); setInsPolicyNumber(''); setInsCoverageAmount(''); setInsStartDate(''); setInsExpiryDate(''); setInsReminderDays('30');
-        setRcFile(''); setRcIssue(''); setRcExpiry('');
-        setInsFile(''); setInsIssue(''); setInsExpiry('');
-        setPolFile(''); setPolIssue(''); setPolExpiry('');
-        setFitFile(''); setFitIssue(''); setFitExpiry('');
-        setPerFile(''); setPerIssue(''); setPerExpiry('');
-        setTaxFile(''); setTaxIssue(''); setTaxExpiry('');
-        setShowDocSection(false);
+        resetVehicleForm();
+        if (isEditVehicleMode) {
+          // Immediately update the vehicles list & dossier so profile refreshes without waiting for fetchData
+          setVehicles(prev => prev.map(v => v._id === editVehicleId ? data.data : v));
+          if (activeVehicleProfileId === editVehicleId) {
+            setSelectedVehicle(data.data);
+          }
+        }
         fetchData();
       } else {
-        setSubmitError(data.message || 'Error adding vehicle');
+        setSubmitError(data.message || (isEditVehicleMode ? 'Error updating vehicle' : 'Error adding vehicle'));
       }
     } catch (err) {
       setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId) => {
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
+    try {
+      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedVehicle(null);
+        setActiveVehicleProfileId(null);
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting vehicle');
+      }
+    } catch (err) {
+      alert('Server connection failure');
     }
   };
 
@@ -1019,7 +1153,7 @@ export default function Console() {
                 </button>
 
                 <button
-                  onClick={() => { setSubmitError(''); setShowAddVehicle(true); }}
+                  onClick={() => { setSubmitError(''); resetVehicleForm(); setShowAddVehicle(true); }}
                   className="flex items-center justify-between p-5 rounded-[24px] bg-gradient-to-br from-white to-[#F0FDF4] border border-white/80 shadow-clayCard hover:-translate-y-1 hover:shadow-lg active:scale-[0.95] transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -1067,7 +1201,7 @@ export default function Console() {
                 </select>
 
                 <button
-                  onClick={() => { setSubmitError(''); setShowAddVehicle(true); }}
+                  onClick={() => { setSubmitError(''); resetVehicleForm(); setShowAddVehicle(true); }}
                   className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed flex items-center justify-center gap-2 transition-all flex-1 sm:flex-none uppercase tracking-wider cursor-pointer"
                   style={{ fontFamily: "Nunito, sans-serif" }}
                 >
@@ -1077,14 +1211,330 @@ export default function Console() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* ── VEHICLE DOSSIER FULL-PAGE VIEW ── */}
+            {activeVehicleProfileId && vehicles.find(v => v._id === activeVehicleProfileId) ? (
+              (() => {
+                const activeVeh = vehicles.find(v => v._id === activeVehicleProfileId);
+                const vehicleTrips = trips.filter(t =>
+                  t.vehicle?._id?.toString() === activeVeh._id.toString() ||
+                  t.vehicleId === activeVeh._id
+                );
+                const docList = [
+                  { label: 'RC (Registration Certificate)', key: 'rc', color: 'emerald', icon: '🪪' },
+                  { label: 'Insurance Policy', key: 'insurance', color: 'blue', icon: '🛡️' },
+                  { label: 'Pollution Certificate (PUC)', key: 'pollution', color: 'green', icon: '🌿' },
+                  { label: 'Fitness Certificate', key: 'fitness', color: 'violet', icon: '✅' },
+                  { label: 'Road Permit', key: 'permit', color: 'amber', icon: '🛣️' },
+                  { label: 'Tax Receipt', key: 'tax', color: 'sky', icon: '📋' },
+                ];
+
+                const colorMap = {
+                  emerald: { card: 'from-emerald-50 via-white to-emerald-50/30', border: 'border-emerald-100', hdr: 'text-emerald-800', sub: 'text-emerald-700', lbl: 'text-emerald-600/70', badge: 'bg-emerald-600/10 text-emerald-700', btn: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-200' },
+                  blue:    { card: 'from-blue-50 via-white to-blue-50/30',    border: 'border-blue-100',    hdr: 'text-blue-800',    sub: 'text-blue-700',    lbl: 'text-blue-600/70',    badge: 'bg-blue-600/10 text-blue-700',    btn: 'bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-200' },
+                  green:   { card: 'from-teal-50 via-white to-teal-50/30',    border: 'border-teal-100',    hdr: 'text-teal-800',    sub: 'text-teal-700',    lbl: 'text-teal-600/70',    badge: 'bg-teal-600/10 text-teal-700',    btn: 'bg-teal-100 hover:bg-teal-200 text-teal-800 border-teal-200' },
+                  violet:  { card: 'from-violet-50 via-white to-violet-50/30',border: 'border-violet-100',  hdr: 'text-violet-800',  sub: 'text-violet-700',  lbl: 'text-violet-600/70',  badge: 'bg-violet-600/10 text-violet-700',  btn: 'bg-violet-100 hover:bg-violet-200 text-violet-800 border-violet-200' },
+                  amber:   { card: 'from-amber-50 via-white to-amber-50/30',  border: 'border-amber-100',   hdr: 'text-amber-800',   sub: 'text-amber-700',   lbl: 'text-amber-600/70',   badge: 'bg-amber-600/10 text-amber-700',   btn: 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-200' },
+                  sky:     { card: 'from-sky-50 via-white to-sky-50/30',      border: 'border-sky-100',     hdr: 'text-sky-800',     sub: 'text-sky-700',     lbl: 'text-sky-600/70',     badge: 'bg-sky-600/10 text-sky-700',     btn: 'bg-sky-100 hover:bg-sky-200 text-sky-800 border-sky-200' },
+                };
+
+                return (
+                  <div className="space-y-8">
+                    {/* ── Dossier Header Bar ── */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/40 p-5 rounded-[28px] border border-white/40 shadow-clayCard">
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => { setActiveVehicleProfileId(null); setSelectedVehicle(null); setVehicleDossierTab('documents'); }}
+                          className="p-3 bg-white border border-white/60 text-clay-primary rounded-[20px] shadow-clayCard hover:scale-105 active:scale-95 transition-all cursor-pointer flex-shrink-0"
+                        >
+                          <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        {/* Vehicle Icon */}
+                        <div className="w-14 h-14 rounded-full bg-clay-primary/10 flex items-center justify-center shadow-clayCard flex-shrink-0">
+                          <Truck className="w-7 h-7 text-clay-primary" />
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h2 className="font-headline text-3xl font-black uppercase text-clay-foreground" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                              {activeVeh.name}
+                            </h2>
+                            <span className={`px-3.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              activeVeh.status === 'available' ? 'bg-clay-success/15 text-clay-success' :
+                              activeVeh.status === 'on_trip' ? 'bg-clay-tertiary/15 text-clay-tertiary' :
+                              activeVeh.status === 'in_shop' ? 'bg-clay-secondary/15 text-clay-secondary' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {activeVeh.status?.replace('_', ' ') || 'Active'}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[9px] text-clay-muted font-bold uppercase tracking-wider mt-1">
+                            {activeVeh.reg} &nbsp;•&nbsp; Vehicle Fleet Dossier
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => startEditVehicle(activeVeh)}
+                          className="bg-white text-clay-primary border border-white/60 font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayCard hover:-translate-y-0.5 active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: 'Nunito, sans-serif' }}
+                        >
+                          Edit Vehicle
+                        </button>
+                        <button
+                          onClick={() => handleDeleteVehicle(activeVeh._id)}
+                          className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: 'Nunito, sans-serif' }}
+                        >
+                          Delete Vehicle
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ── Insurance Expiry Alert ── */}
+                    {activeVeh.insurance?.expiryDate && (() => {
+                      const days = Math.ceil((new Date(activeVeh.insurance.expiryDate) - new Date()) / (1000*60*60*24));
+                      if (days < 0) return (
+                        <div className="bg-red-50 border border-red-200 p-4 rounded-[24px] flex items-center gap-3 shadow-clayCard animate-pulse">
+                          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                          <span className="font-mono text-xs font-black uppercase text-red-700">INSURANCE EXPIRED! Policy expired on {activeVeh.insurance.expiryDate}. Renew immediately.</span>
+                        </div>
+                      );
+                      if (days <= 30) return (
+                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-[24px] flex items-center gap-3 shadow-clayCard">
+                          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                          <span className="font-mono text-xs font-black uppercase text-yellow-700">INSURANCE EXPIRES IN {days} DAYS — {activeVeh.insurance.company}</span>
+                        </div>
+                      );
+                      return null;
+                    })()}
+
+                    {/* ── Split Layout ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                      {/* LEFT — Specs Panel */}
+                      <div className="lg:col-span-5 space-y-6">
+                        <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+                          {/* Vehicle Icon + Name */}
+                          <div className="flex gap-4 items-center border-b border-slate-100 pb-5">
+                            <div className="w-16 h-16 rounded-full bg-clay-primary/10 flex items-center justify-center shadow-clayCard flex-shrink-0">
+                              <Truck className="w-8 h-8 text-clay-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-headline font-black text-xl text-clay-foreground uppercase" style={{ fontFamily: 'Nunito, sans-serif' }}>{activeVeh.name}</h4>
+                              <p className="font-mono text-[9px] text-clay-muted font-bold uppercase tracking-widest mt-0.5">
+                                {activeVeh.brand} {activeVeh.model} {activeVeh.mfgYear && `• ${activeVeh.mfgYear}`}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Key Stats Grid */}
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              { label: 'Registration', value: activeVeh.reg },
+                              { label: 'Type', value: activeVeh.type },
+                              { label: 'Fuel Type', value: activeVeh.fuelType || 'Diesel' },
+                              { label: 'Color', value: activeVeh.color || 'N/A' },
+                              { label: 'Odometer', value: `${activeVeh.odometer} KM` },
+                              { label: 'Max Load', value: `${activeVeh.maxLoad} T` },
+                            ].map(s => (
+                              <div key={s.label} className="bg-clay-canvas/50 p-3 rounded-[16px] border border-white/60">
+                                <span className="font-mono text-[8px] text-clay-muted font-black uppercase tracking-wider block">{s.label}</span>
+                                <p className="font-black text-sm text-clay-foreground mt-0.5" style={{ fontFamily: 'Nunito, sans-serif' }}>{s.value}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Detail rows */}
+                          <div className="space-y-3 text-xs font-bold border-t border-slate-100 pt-4">
+                            {activeVeh.vin && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">VIN / Chassis</span><span className="font-mono">{activeVeh.vin}</span></div>}
+                            {activeVeh.engineNum && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Engine No.</span><span className="font-mono">{activeVeh.engineNum}</span></div>}
+                            {activeVeh.seatingCapacity && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Seating</span><span>{activeVeh.seatingCapacity} seats</span></div>}
+                            {activeVeh.fuelTankCapacity && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Fuel Tank</span><span>{activeVeh.fuelTankCapacity} L</span></div>}
+                            {activeVeh.mileage && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Mileage</span><span>{activeVeh.mileage} KM/L</span></div>}
+                            {activeVeh.depotLocation && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Depot</span><span>{activeVeh.depotLocation}</span></div>}
+                            {activeVeh.ownerName && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Owner</span><span>{activeVeh.ownerName} ({activeVeh.leaseType})</span></div>}
+                            {activeVeh.purchaseCost && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Purchase Cost</span><span>₹{Number(activeVeh.purchaseCost).toLocaleString()}</span></div>}
+                            {activeVeh.warrantyExpiry && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Warranty Until</span><span>{activeVeh.warrantyExpiry}</span></div>}
+                            {activeVeh.fuelCardNumber && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Fuel Card</span><span className="font-mono">{activeVeh.fuelCardNumber}</span></div>}
+                            {activeVeh.assignedDriver && <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-clay-muted uppercase">Assigned Driver</span><span>{activeVeh.assignedDriver?.name || activeVeh.assignedDriver}</span></div>}
+                          </div>
+
+                          {/* Insurance mini card */}
+                          {activeVeh.insurance?.company && (
+                            <div className="bg-clay-canvas/50 p-5 rounded-[24px] border border-white/60 shadow-clayPressed space-y-2">
+                              <span className="font-mono text-[8px] text-clay-primary font-black uppercase tracking-wider">Insurance Coverage</span>
+                              <div className="flex justify-between items-center text-xs font-bold">
+                                <span className="text-clay-muted">Company</span>
+                                <span>{activeVeh.insurance.company}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs font-bold">
+                                <span className="text-clay-muted">Policy No.</span>
+                                <span className="font-mono">{activeVeh.insurance.policyNumber}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs font-bold">
+                                <span className="text-clay-muted">Coverage</span>
+                                <span>₹{Number(activeVeh.insurance.coverageAmount).toLocaleString()}</span>
+                              </div>
+                              {activeVeh.insurance.expiryDate && (
+                                <div className="flex justify-between items-center text-xs font-bold">
+                                  <span className="text-clay-muted">Valid Until</span>
+                                  <span className={`${getDocStatus(activeVeh.insurance.expiryDate).color} px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold`}>
+                                    {activeVeh.insurance.expiryDate}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* GPS Card */}
+                        <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard">
+                          <GPSCard vehicle={activeVeh} />
+                        </div>
+                      </div>
+
+                      {/* RIGHT — Tabs Panel */}
+                      <div className="lg:col-span-7 space-y-6">
+                        {/* Tab toggle */}
+                        <div className="flex bg-white/40 p-2 rounded-[20px] border border-white/40 shadow-clayCard">
+                          <button
+                            onClick={() => setVehicleDossierTab('documents')}
+                            className={`flex-1 py-3.5 text-xs font-black rounded-[16px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${vehicleDossierTab === 'documents' ? 'bg-white text-clay-primary shadow-clayCard' : 'text-clay-muted hover:text-clay-primary'}`}
+                            style={{ fontFamily: 'Nunito, sans-serif' }}
+                          >
+                            Compliance Documents
+                          </button>
+                          <button
+                            onClick={() => setVehicleDossierTab('trips')}
+                            className={`flex-1 py-3.5 text-xs font-black rounded-[16px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${vehicleDossierTab === 'trips' ? 'bg-white text-clay-primary shadow-clayCard' : 'text-clay-muted hover:text-clay-primary'}`}
+                            style={{ fontFamily: 'Nunito, sans-serif' }}
+                          >
+                            Trip History ({vehicleTrips.length})
+                          </button>
+                        </div>
+
+                        {/* Documents Tab — govt card styled */}
+                        {vehicleDossierTab === 'documents' ? (
+                          <div className="space-y-6">
+                            {docList.map(({ label, key, color, icon }) => {
+                              const doc = activeVeh.documents?.[key];
+                              const c = colorMap[color];
+                              const status = doc?.expiryDate ? getDocStatus(doc.expiryDate) : null;
+                              return (
+                                <div key={key} className={`bg-gradient-to-br ${c.card} rounded-[32px] p-8 border-2 ${c.border} shadow-clayCard relative overflow-hidden group`}>
+                                  <div className={`absolute right-0 top-0 w-32 h-32 rounded-full blur-3xl group-hover:scale-110 transition-all duration-500 bg-current opacity-5`} />
+
+                                  {/* Card header */}
+                                  <div className={`flex justify-between items-start border-b ${c.border} pb-4 mb-5`}>
+                                    <div className="space-y-0.5">
+                                      <h4 className={`text-[10px] font-black uppercase ${c.hdr} tracking-wider`}>{label}</h4>
+                                      <h5 className={`text-[9px] font-bold ${c.sub} tracking-wide`}>
+                                        {key === 'rc' && 'Ministry of Road Transport & Highways, India'}
+                                        {key === 'insurance' && 'IRDAI Registered Insurance Provider'}
+                                        {key === 'pollution' && 'Central Pollution Control Board (CPCB)'}
+                                        {key === 'fitness' && 'Regional Transport Office (RTO)'}
+                                        {key === 'permit' && 'State Transport Authority, India'}
+                                        {key === 'tax' && 'Road Tax Authority, State Government'}
+                                      </h5>
+                                    </div>
+                                    <div className={`w-8 h-8 rounded-full ${c.badge} flex items-center justify-center font-bold text-[10px]`}>
+                                      {icon}
+                                    </div>
+                                  </div>
+
+                                  {doc?.expiryDate ? (
+                                    <>
+                                      <div className="grid grid-cols-2 gap-4 text-xs mb-4">
+                                        <div>
+                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Vehicle Registration</span>
+                                          <p className="font-black text-slate-800 uppercase">{activeVeh.reg}</p>
+                                        </div>
+                                        <div>
+                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Vehicle Name</span>
+                                          <p className="font-bold text-slate-700 uppercase">{activeVeh.name}</p>
+                                        </div>
+                                        {doc.issueDate && (
+                                          <div>
+                                            <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Issue Date</span>
+                                            <p className="font-bold text-slate-700">{doc.issueDate}</p>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Expiry Date</span>
+                                          <p className="font-bold text-slate-700">{doc.expiryDate}</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Status badge */}
+                                      <div className={`mt-4 pt-4 border-t ${c.border}/50 flex items-center justify-between`}>
+                                        <span className={`text-[8px] ${c.lbl} font-mono font-bold uppercase tracking-wider`}>Document Status</span>
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${status?.color}`}>
+                                          {status?.label}
+                                        </span>
+                                      </div>
+
+                                      {doc.fileName && (
+                                        <div className="mt-3 flex justify-center">
+                                          <span className={`inline-flex items-center gap-2 ${c.btn} font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider border`}>
+                                            <Download className="w-3 h-3" /> {doc.fileName}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="py-4 text-center">
+                                      <p className={`font-mono text-[9px] font-black uppercase tracking-wider ${c.sub} opacity-50`}>No document uploaded yet</p>
+                                      <p className="font-mono text-[8px] text-clay-muted mt-1">Add expiry date when registering the vehicle</p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          /* Trips Tab */
+                          <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+                            <h4 className="font-headline text-xl font-black uppercase text-clay-foreground" style={{ fontFamily: 'Nunito, sans-serif' }}>Dispatched Trip Logs</h4>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                              {vehicleTrips.length === 0 ? (
+                                <div className="text-center py-10 text-clay-muted">
+                                  <Truck className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                                  <p className="font-bold uppercase text-xs">No trip history for this vehicle.</p>
+                                </div>
+                              ) : (
+                                vehicleTrips.map(t => (
+                                  <div key={t._id} className="p-5 bg-clay-canvas/40 rounded-[24px] border border-white/60 shadow-clayCard hover:-translate-y-0.5 transition-all flex justify-between items-center">
+                                    <div className="space-y-1">
+                                      <div className="flex gap-2 items-center text-[10px] font-black text-clay-primary uppercase font-mono tracking-widest">
+                                        <span>{t.id}</span><span>•</span><span>{t.distance} KM</span>
+                                      </div>
+                                      <h5 className="font-headline font-black text-sm uppercase text-clay-foreground" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                                        {t.source} ➜ {t.destination}
+                                      </h5>
+                                      {t.driver?.name && <p className="font-mono text-[9px] text-clay-muted font-bold">Driver: {t.driver.name}</p>}
+                                    </div>
+                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                      t.status === 'completed' ? 'bg-clay-success/15 text-clay-success' :
+                                      t.status === 'dispatched' ? 'bg-clay-tertiary/15 text-clay-tertiary' : 'bg-slate-100 text-slate-500'
+                                    }`}>{t.status}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              /* ── CARD GRID VIEW ── */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedVehicle ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
                 {filteredVehicles.map(veh => (
                   <div
                     key={veh._id}
-                    onClick={() => setSelectedVehicle(veh)}
-                    className={`bg-white rounded-[32px] p-6 shadow-clayCard border flex flex-col justify-between gap-6 hover:-translate-y-1 transition-all duration-300 cursor-pointer ${selectedVehicle?._id === veh._id ? 'border-clay-primary ring-2 ring-clay-primary/20' : 'border-white/60'
-                      }`}
+                    onClick={() => { setActiveVehicleProfileId(veh._id); setSelectedVehicle(veh); setVehicleDossierTab('documents'); }}
+                    className={`bg-white rounded-[32px] p-6 shadow-clayCard border flex flex-col justify-between gap-6 hover:-translate-y-1 transition-all duration-300 cursor-pointer border-white/60`}
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -1365,8 +1815,10 @@ export default function Console() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )
+        }
+      </div>
+    )}
 
         {/* ========================================================
            TAB 3: DRIVER MANAGEMENT
@@ -2258,8 +2710,8 @@ export default function Console() {
           <div className="w-full max-w-2xl bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden flex flex-col max-h-[90vh]">
 
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 flex-shrink-0">
-              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Register Vehicle</h3>
-              <button onClick={() => setShowAddVehicle(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>{isEditVehicleMode ? 'Edit Vehicle' : 'Register Vehicle'}</h3>
+              <button onClick={() => { setShowAddVehicle(false); resetVehicleForm(); }} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
             </div>
 
             {submitError && (
@@ -2829,7 +3281,7 @@ export default function Console() {
                 className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-4 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer flex-shrink-0"
                 style={{ fontFamily: "Nunito, sans-serif" }}
               >
-                Register Vehicle
+                {isEditVehicleMode ? '✏️ Update Vehicle' : '🚛 Register Vehicle'}
               </button>
             </form>
           </div>
