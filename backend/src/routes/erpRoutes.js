@@ -7,6 +7,25 @@ const Maintenance = require('../models/Maintenance');
 const Expense = require('../models/Expense');
 const { protect } = require('../middleware/authMiddleware');
 const https = require('https');
+const ImageKit = require('imagekit');
+
+// @route   GET /api/imagekit/auth
+// Returns authentication parameters for client-side ImageKit uploads
+// ImageKit is initialized lazily inside the handler so env vars are already loaded
+router.get('/imagekit/auth', protect, (req, res) => {
+  try {
+    const ik = new ImageKit({
+      publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+      privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+      urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT
+    });
+    const authParams = ik.getAuthenticationParameters();
+    res.json({ success: true, ...authParams, publicKey: process.env.IMAGEKIT_PUBLIC_KEY, urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // Helper to automatically recalculate and save a driver's safety score based on profile documents and trips
 async function recalculateDriverScore(driverId) {

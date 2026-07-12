@@ -69,6 +69,8 @@ export default function Console() {
   // Loading states
   const [loading, setLoading] = useState(true);
   const [submitError, setSubmitError] = useState('');
+  const [imagekitAuth, setImagekitAuth] = useState(null);
+  const [docUploading, setDocUploading] = useState({});
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -312,6 +314,34 @@ export default function Console() {
       fetchData();
     }
   }, [token]);
+
+  // Upload a file to ImageKit and return the URL
+  const uploadToImageKit = async (file, folder = 'vehicle-docs') => {
+    // Dynamically fetch fresh auth parameters on every single upload to prevent token reuse errors
+    const authRes = await fetch('/api/imagekit/auth', { headers: { 'Authorization': `Bearer ${token}` } });
+    const authData = await authRes.json();
+    if (!authData.success) {
+      throw new Error(authData.message || 'Failed to authenticate with ImageKit backend');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileName', file.name);
+    formData.append('folder', folder);
+    formData.append('publicKey', authData.publicKey);
+    formData.append('signature', authData.signature);
+    formData.append('expire', authData.expire);
+    formData.append('token', authData.token);
+
+    const res = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.url) throw new Error(data.message || 'Upload failed');
+    return data.url;
+  };
+
 
   // Reset and Edit Vehicle helpers
   const resetVehicleForm = () => {
@@ -1542,51 +1572,50 @@ export default function Console() {
         <div className="absolute h-[55vh] w-[55vh] rounded-full blur-3xl bg-clay-tertiary/10 -bottom-[15%] left-[25%] clay-blob-anim-3"></div>
       </div>
 
-      {/* Sidebar Navigation - Fixed height sticky design to prevent stretching */}
-      <aside className={`h-full bg-white/60 backdrop-blur-xl border-white/80 flex flex-col justify-between hidden md:flex flex-shrink-0 relative z-10 transition-all duration-300 ${sidebarVisible ? 'w-72 p-8 border-r-2 opacity-100' : 'w-0 p-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
+      {/* Sidebar Navigation - Scrollable nav with pinned profile at bottom */}
+      <aside className={`h-full bg-white/60 backdrop-blur-xl border-white/80 hidden md:flex flex-col flex-shrink-0 relative z-10 transition-all duration-300 ${sidebarVisible ? 'w-72 border-r-2 opacity-100' : 'w-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
         }`}>
-        <div className="space-y-12">
-          {/* Logo container */}
-          <div className="flex items-center gap-3">
-            <img src={logo} className="w-10 h-10 object-contain rounded-2xl shadow-clayButton" alt="TransitOps" />
-            <span className="font-black text-2xl tracking-tight text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>TransitOps</span>
-          </div>
 
-          {/* Nav list */}
-          <nav className="flex flex-col gap-3">
-            {[
-              { id: 'overview', icon: LayoutGrid, label: 'Overview' },
-              { id: 'vehicles', icon: Truck, label: 'Vehicles Registry' },
-              { id: 'drivers', icon: Users, label: 'Driver Crew' },
-              { id: 'schedule', icon: Calendar, label: 'Dispatch Log' },
-              { id: 'maintenance', icon: Wrench, label: 'Maintenance Log' },
-              { id: 'fuel', icon: Fuel, label: 'Fuel Logs' },
-              { id: 'expenses', icon: CircleDollarSign, label: 'Expense Logs' },
-              { id: 'reports', icon: TrendingUp, label: 'Reports & ROI' },
-              { id: 'copilot', icon: Sparkles, label: 'AI Fleet Copilot' },
-              { id: 'settings', icon: Settings, label: 'Settings' }
-            ].map(item => {
-              const Icon = item.icon;
-              const isActive = activeMenu === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => { setActiveMenu(item.id); setSearchQuery(''); }}
-                  className={`flex items-center gap-4 px-6 py-4 rounded-[20px] font-bold text-sm tracking-wide transition-all duration-300 cursor-pointer ${isActive
-                      ? 'bg-gradient-to-br from-white to-[#F0EBF7] text-clay-primary shadow-clayCard translate-x-1.5'
-                      : 'text-clay-muted hover:text-clay-primary hover:bg-white/30'
-                    }`}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-clay-primary' : 'text-clay-muted'}`} />
-                  <span style={{ fontFamily: "Nunito, sans-serif" }}>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+        {/* Logo - pinned at top */}
+        <div className="flex items-center gap-3 px-8 pt-8 pb-4 flex-shrink-0">
+          <img src={logo} className="w-10 h-10 object-contain rounded-2xl shadow-clayButton" alt="TransitOps" />
+          <span className="font-black text-2xl tracking-tight text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>TransitOps</span>
         </div>
 
-        {/* User Profile Card & Signout */}
-        <div className="space-y-6">
+        {/* Scrollable Nav list */}
+        <nav className="flex flex-col gap-3 flex-1 overflow-y-auto px-8 py-2" style={{ scrollbarWidth: 'none' }}>
+          {[
+            { id: 'overview', icon: LayoutGrid, label: 'Overview' },
+            { id: 'vehicles', icon: Truck, label: 'Vehicles Registry' },
+            { id: 'drivers', icon: Users, label: 'Driver Crew' },
+            { id: 'schedule', icon: Calendar, label: 'Dispatch Log' },
+            { id: 'maintenance', icon: Wrench, label: 'Maintenance Log' },
+            { id: 'fuel', icon: Fuel, label: 'Fuel Logs' },
+            { id: 'expenses', icon: CircleDollarSign, label: 'Expense Logs' },
+            { id: 'reports', icon: TrendingUp, label: 'Reports & ROI' },
+            { id: 'copilot', icon: Sparkles, label: 'AI Fleet Copilot' },
+            { id: 'settings', icon: Settings, label: 'Settings' }
+          ].map(item => {
+            const Icon = item.icon;
+            const isActive = activeMenu === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { setActiveMenu(item.id); setSearchQuery(''); }}
+                className={`flex items-center gap-4 px-6 py-4 rounded-[20px] font-bold text-sm tracking-wide transition-all duration-300 cursor-pointer flex-shrink-0 ${isActive
+                    ? 'bg-gradient-to-br from-white to-[#F0EBF7] text-clay-primary shadow-clayCard translate-x-1.5'
+                    : 'text-clay-muted hover:text-clay-primary hover:bg-white/30'
+                  }`}
+              >
+                <Icon className={`w-5 h-5 ${isActive ? 'text-clay-primary' : 'text-clay-muted'}`} />
+                <span style={{ fontFamily: "Nunito, sans-serif" }}>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* User Profile Card & Signout - pinned at bottom */}
+        <div className="space-y-4 px-8 py-6 flex-shrink-0 border-t border-white/60">
           <div className="p-4 bg-white/80 rounded-[24px] border border-white/60 shadow-clayCard flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-clay-primary/20 flex items-center justify-center font-bold text-clay-primary text-sm shadow-clayCard">
               {user ? user.name[0].toUpperCase() : 'M'}
@@ -2033,78 +2062,246 @@ export default function Console() {
                           </button>
                         </div>
 
-                        {/* Documents Tab — govt card styled */}
+                        {/* Documents Tab — govt card styled (Aadhaar format) */}
                         {vehicleDossierTab === 'documents' ? (
-                          <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {docList.map(({ label, key, color, icon }) => {
                               const doc = activeVeh.documents?.[key];
-                              const c = colorMap[color];
                               const status = doc?.expiryDate ? getDocStatus(doc.expiryDate) : null;
-                              return (
-                                <div key={key} className={`bg-gradient-to-br ${c.card} rounded-[32px] p-8 border-2 ${c.border} shadow-clayCard relative overflow-hidden group`}>
-                                  <div className={`absolute right-0 top-0 w-32 h-32 rounded-full blur-3xl group-hover:scale-110 transition-all duration-500 bg-current opacity-5`} />
 
-                                  {/* Card header */}
-                                  <div className={`flex justify-between items-start border-b ${c.border} pb-4 mb-5`}>
-                                    <div className="space-y-0.5">
-                                      <h4 className={`text-[10px] font-black uppercase ${c.hdr} tracking-wider`}>{label}</h4>
-                                      <h5 className={`text-[9px] font-bold ${c.sub} tracking-wide`}>
-                                        {key === 'rc' && 'Ministry of Road Transport & Highways, India'}
-                                        {key === 'insurance' && 'IRDAI Registered Insurance Provider'}
-                                        {key === 'pollution' && 'Central Pollution Control Board (CPCB)'}
-                                        {key === 'fitness' && 'Regional Transport Office (RTO)'}
-                                        {key === 'permit' && 'State Transport Authority, India'}
-                                        {key === 'tax' && 'Road Tax Authority, State Government'}
-                                      </h5>
+                              // Custom Color Palette for Govt ID styling
+                              const govtColorMap = {
+                                emerald: { 
+                                  card: 'bg-[#F4FAF7] border-[#D1ECE0]', 
+                                  hdr: 'text-[#0F6F47]', 
+                                  sub: 'text-[#1B8055]', 
+                                  lbl: 'text-[#0A5C3A]/60', 
+                                  badge: 'bg-[#E3F6EE] text-[#0A5C3A]', 
+                                  photoBox: 'bg-[#E3F6EE] border-[#B9E9D5] text-[#0A5C3A]',
+                                  btn: 'bg-gradient-to-br from-[#E3F6EE] to-[#D1ECE0] border-[#B9E9D5] text-[#0A5C3A] hover:bg-white hover:text-emerald-700',
+                                  spacedNum: 'text-[#1C2D24]'
+                                },
+                                blue: { 
+                                  card: 'bg-[#F0F5FF] border-[#D0E0FF]', 
+                                  hdr: 'text-[#1E40AF]', 
+                                  sub: 'text-[#2563EB]', 
+                                  lbl: 'text-[#1E40AF]/60', 
+                                  badge: 'bg-[#E0EBFF] text-[#1E40AF]', 
+                                  photoBox: 'bg-[#E0EBFF] border-[#C2D6FF] text-[#1E40AF]',
+                                  btn: 'bg-gradient-to-br from-[#E0EBFF] to-[#C2D6FF] border-[#B2CCFF] text-[#1E40AF] hover:bg-white hover:text-blue-700',
+                                  spacedNum: 'text-[#1E293B]'
+                                },
+                                green: { 
+                                  card: 'bg-[#F5FAF6] border-[#D2ECDC]', 
+                                  hdr: 'text-[#15803D]', 
+                                  sub: 'text-[#16A34A]', 
+                                  lbl: 'text-[#15803D]/60', 
+                                  badge: 'bg-[#E2F5E9] text-[#15803D]', 
+                                  photoBox: 'bg-[#E2F5E9] border-[#C2EBCF] text-[#15803D]',
+                                  btn: 'bg-gradient-to-br from-[#E2F5E9] to-[#C2EBCF] border-[#B2E2C2] text-[#15803D] hover:bg-white hover:text-green-700',
+                                  spacedNum: 'text-[#1C2D24]'
+                                },
+                                violet: { 
+                                  card: 'bg-[#FAF5FF] border-[#EAD8FC]', 
+                                  hdr: 'text-[#6D28D9]', 
+                                  sub: 'text-[#7C3AED]', 
+                                  lbl: 'text-[#6D28D9]/60', 
+                                  badge: 'bg-[#F3E8FF] text-[#6D28D9]', 
+                                  photoBox: 'bg-[#F3E8FF] border-[#E5D0FA] text-[#6D28D9]',
+                                  btn: 'bg-gradient-to-br from-[#F3E8FF] to-[#E5D0FA] border-[#D8B4FE] text-[#6D28D9] hover:bg-white hover:text-purple-700',
+                                  spacedNum: 'text-[#2E1065]'
+                                },
+                                amber: { 
+                                  card: 'bg-[#FFFBEB] border-[#FDE68A]', 
+                                  hdr: 'text-[#B45309]', 
+                                  sub: 'text-[#D97706]', 
+                                  lbl: 'text-[#B45309]/60', 
+                                  badge: 'bg-[#FEF3C7] text-[#B45309]', 
+                                  photoBox: 'bg-[#FEF3C7] border-[#FDE047] text-[#B45309]',
+                                  btn: 'bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-[#FCD34D] text-[#B45309] hover:bg-white hover:text-amber-700',
+                                  spacedNum: 'text-[#451A03]'
+                                },
+                                sky: { 
+                                  card: 'bg-[#F0F9FF] border-[#BAE6FD]', 
+                                  hdr: 'text-[#0369A1]', 
+                                  sub: 'text-[#0284C7]', 
+                                  lbl: 'text-[#0369A1]/60', 
+                                  badge: 'bg-[#E0F2FE] text-[#0369A1]', 
+                                  photoBox: 'bg-[#E0F2FE] border-[#B3E1FC] text-[#0369A1]',
+                                  btn: 'bg-gradient-to-br from-[#E0F2FE] to-[#B3E1FC] border-[#7DD3FC] text-[#0369A1] hover:bg-white hover:text-sky-700',
+                                  spacedNum: 'text-[#082F49]'
+                                }
+                              };
+
+                              const c = govtColorMap[color] || govtColorMap.emerald;
+
+                              // Metadata for Govt cards
+                              const getGovtCardInfo = (docKey, v) => {
+                                switch (docKey) {
+                                  case 'rc':
+                                    return {
+                                      govt: 'BHARAT SARKAR (GOVT OF INDIA)',
+                                      agency: 'Ministry of Road Transport & Highways (MoRTH)',
+                                      type: 'REGISTRATION CERTIFICATE (RC)',
+                                      badge: 'UID',
+                                      numberLabel: 'REGISTRATION NUMBER',
+                                      numberValue: v.reg || 'N/A',
+                                      photoIcon: 'local_shipping'
+                                    };
+                                  case 'insurance':
+                                    return {
+                                      govt: 'INSURANCE REGULATORY & DEVELOPMENT AUTHORITY',
+                                      agency: 'Govt Registered Commercial Carrier Insurance',
+                                      type: 'COMMERCIAL CARRIER POLICY',
+                                      badge: 'INS',
+                                      numberLabel: 'POLICY CERTIFICATE NUMBER',
+                                      numberValue: v.insurance?.policyNumber || 'N/A',
+                                      photoIcon: 'shield'
+                                    };
+                                  case 'pollution':
+                                    return {
+                                      govt: 'MINISTRY OF ENVIRONMENT, FOREST & CLIMATE CHANGE',
+                                      agency: 'Central Pollution Control Board (CPCB), India',
+                                      type: 'POLLUTION UNDER CONTROL (PUC)',
+                                      badge: 'CPCB',
+                                      numberLabel: 'PUC SERIAL NUMBER',
+                                      numberValue: 'PUC' + (v.reg ? v.reg.replace(/[^A-Z0-9]/g, '') : '9982'),
+                                      photoIcon: 'eco'
+                                    };
+                                  case 'fitness':
+                                    return {
+                                      govt: 'REGIONAL TRANSPORT OFFICE (GOVT OF INDIA)',
+                                      agency: 'Motor Vehicles Inspection Department',
+                                      type: 'VEHICLE FITNESS CERTIFICATE',
+                                      badge: 'RTO',
+                                      numberLabel: 'FITNESS CERTIFICATE ID',
+                                      numberValue: 'FIT' + (v._id ? v._id.slice(-8).toUpperCase() : '8744'),
+                                      photoIcon: 'fact_check'
+                                    };
+                                  case 'permit':
+                                    return {
+                                      govt: 'STATE TRANSPORT AUTHORITY (ALL INDIA PERMIT)',
+                                      agency: 'National Permits and Licensing Department',
+                                      type: 'NATIONAL ROAD PERMIT (GOODS)',
+                                      badge: 'STA',
+                                      numberLabel: 'PERMIT REGISTRATION ID',
+                                      numberValue: 'NP' + (v.reg ? v.reg.replace(/[^A-Z0-9]/g, '') : '4828'),
+                                      photoIcon: 'map'
+                                    };
+                                  case 'tax':
+                                    return {
+                                      govt: 'DEPARTMENT OF REVENUE & MOTOR VEHICLES',
+                                      agency: 'Commercial Vehicle Road Tax Authority',
+                                      type: 'ROAD TAX LIFE-TIME RECEIPT',
+                                      badge: 'TAX',
+                                      numberLabel: 'TAX RECEIPT TRANSACTION NO',
+                                      numberValue: 'TAX' + (v._id ? v._id.slice(-6).toUpperCase() : '8729'),
+                                      photoIcon: 'receipt_long'
+                                    };
+                                  default:
+                                    return {
+                                      govt: 'GOVERNMENT OF INDIA',
+                                      agency: 'National Transport Control Board',
+                                      type: 'COMPLIANCE COMPONENT',
+                                      badge: 'DOC',
+                                      numberLabel: 'DOCUMENT CERTIFICATE ID',
+                                      numberValue: v.reg || 'N/A',
+                                      photoIcon: 'description'
+                                    };
+                                }
+                              };
+
+                              const gi = getGovtCardInfo(key, activeVeh);
+
+                              // Spaced digits formatter
+                              const formatCardNumber = (str) => {
+                                if (!str) return 'N/A';
+                                const clean = str.replace(/\s+/g, '').toUpperCase();
+                                const chunks = [];
+                                for (let i = 0; i < clean.length; i += 4) {
+                                  chunks.push(clean.slice(i, i + 4));
+                                }
+                                return chunks.join('   ');
+                              };
+
+                              return (
+                                <div key={key} className={`bg-white rounded-[32px] p-6 border-2 shadow-clayCard relative overflow-hidden transition-all duration-300 ${c.card}`}>
+                                  {/* Govt Card Header */}
+                                  <div className="flex justify-between items-start border-b pb-3 mb-4 border-slate-200/50">
+                                    <div className="space-y-0.5 text-left">
+                                      <h4 className={`text-[9px] font-black uppercase tracking-wider ${c.hdr}`} style={{ fontFamily: "Nunito, sans-serif" }}>{gi.govt}</h4>
+                                      <h5 className={`text-[8px] font-extrabold tracking-wide ${c.sub}`} style={{ fontFamily: "Nunito, sans-serif" }}>{gi.agency}</h5>
                                     </div>
-                                    <div className={`w-8 h-8 rounded-full ${c.badge} flex items-center justify-center font-bold text-[10px]`}>
-                                      {icon}
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[9px] shadow-clayCard ${c.badge}`}>
+                                      {gi.badge}
                                     </div>
                                   </div>
 
                                   {doc?.expiryDate ? (
                                     <>
-                                      <div className="grid grid-cols-2 gap-4 text-xs mb-4">
-                                        <div>
-                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Vehicle Registration</span>
-                                          <p className="font-black text-slate-800 uppercase">{activeVeh.reg}</p>
+                                      {/* Govt Card Content Layout */}
+                                      <div className="flex items-start gap-4 mb-4">
+                                        {/* Left Side Photo/Verified Box */}
+                                        <div className={`w-20 h-24 rounded-2xl border-2 flex flex-col items-center justify-center text-center p-2 shadow-clayPressed flex-shrink-0 ${c.photoBox}`}>
+                                          <span className="material-symbols-outlined text-[28px] mb-1">{gi.photoIcon}</span>
+                                          <span className="font-mono text-[6px] font-black tracking-widest uppercase leading-none">DOCUMENT VERIFIED</span>
                                         </div>
-                                        <div>
-                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Vehicle Name</span>
-                                          <p className="font-bold text-slate-700 uppercase">{activeVeh.name}</p>
-                                        </div>
-                                        {doc.issueDate && (
+
+                                        {/* Right Side Key Fields */}
+                                        <div className="flex-1 space-y-2 text-left pl-1">
                                           <div>
-                                            <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Issue Date</span>
-                                            <p className="font-bold text-slate-700">{doc.issueDate}</p>
+                                            <span className={`text-[8px] font-mono font-black uppercase tracking-wider block ${c.lbl}`}>DOCUMENT TYPE</span>
+                                            <p className="font-headline font-black text-xs text-slate-800 uppercase" style={{ fontFamily: 'Nunito, sans-serif' }}>{gi.type}</p>
                                           </div>
-                                        )}
-                                        <div>
-                                          <span className={`text-[9px] ${c.lbl} font-mono font-bold uppercase tracking-wider block`}>Expiry Date</span>
-                                          <p className="font-bold text-slate-700">{doc.expiryDate}</p>
+                                          <div>
+                                            <span className={`text-[8px] font-mono font-black uppercase tracking-wider block ${c.lbl}`}>VEHICLE DETAILS</span>
+                                            <p className="font-bold text-[11px] text-slate-700 uppercase">{activeVeh.name} ({activeVeh.reg})</p>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            {doc.issueDate && (
+                                              <div>
+                                                <span className={`text-[8px] font-mono font-black uppercase tracking-wider block ${c.lbl}`}>ISSUE DATE</span>
+                                                <p className="font-bold text-[11px] text-slate-700">{doc.issueDate}</p>
+                                              </div>
+                                            )}
+                                            <div>
+                                              <span className={`text-[8px] font-mono font-black uppercase tracking-wider block ${c.lbl}`}>EXPIRY DATE</span>
+                                              <p className="font-bold text-[11px] text-slate-700">{doc.expiryDate}</p>
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
 
-                                      {/* Status badge */}
-                                      <div className={`mt-4 pt-4 border-t ${c.border}/50 flex items-center justify-between`}>
-                                        <span className={`text-[8px] ${c.lbl} font-mono font-bold uppercase tracking-wider`}>Document Status</span>
-                                        <span className={`px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${status?.color}`}>
-                                          {status?.label}
-                                        </span>
+                                      {/* Government Card Footer Divider & Number Placement */}
+                                      <div className="border-t border-dashed pt-3 mt-3 border-slate-300">
+                                        <div className="text-center">
+                                          <span className={`text-[8px] font-mono font-black uppercase tracking-wider block ${c.lbl}`}>{gi.numberLabel}</span>
+                                          <p className={`font-mono text-base font-black tracking-widest mt-1 uppercase ${c.spacedNum}`} style={{ letterSpacing: '3px' }}>
+                                            {formatCardNumber(gi.numberValue)}
+                                          </p>
+                                        </div>
                                       </div>
 
+                                      {/* View Document action button */}
                                       {doc.fileName && (
-                                        <div className="mt-3 flex justify-center">
-                                          <span className={`inline-flex items-center gap-2 ${c.btn} font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider border`}>
-                                            <Download className="w-3 h-3" /> {doc.fileName}
-                                          </span>
+                                        <div className="mt-4">
+                                          <a
+                                            href={doc.fileName}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className={`w-full text-center flex items-center justify-center gap-1.5 font-bold text-[10px] py-2.5 rounded-[16px] shadow-clayButton transition-all uppercase tracking-wider border cursor-pointer ${c.btn}`}
+                                            style={{ fontFamily: 'Nunito, sans-serif' }}
+                                          >
+                                            <span className="material-symbols-outlined text-[13px]">visibility</span>
+                                            <span>VIEW {gi.badge === 'UID' ? 'RC' : gi.badge} DOCUMENT</span>
+                                          </a>
                                         </div>
                                       )}
                                     </>
                                   ) : (
-                                    <div className="py-4 text-center">
-                                      <p className={`font-mono text-[9px] font-black uppercase tracking-wider ${c.sub} opacity-50`}>No document uploaded yet</p>
-                                      <p className="font-mono text-[8px] text-clay-muted mt-1">Add expiry date when registering the vehicle</p>
+                                    <div className="py-8 text-center bg-white/40 rounded-2xl border border-dashed border-slate-200">
+                                      <p className={`font-mono text-[9px] font-black uppercase tracking-wider opacity-60 ${c.hdr}`}>No compliance upload found</p>
+                                      <p className="font-mono text-[8px] text-clay-muted mt-1">Submit documents in the vehicle details form</p>
                                     </div>
                                   )}
                                 </div>
@@ -4615,28 +4812,59 @@ export default function Console() {
                               </span>
                             </div>
 
-                            {/* Styled File Upload Input */}
+                            {/* ImageKit File Upload */}
                             <div className="flex flex-col space-y-1">
                               <label className="font-mono text-[8px] font-black uppercase tracking-wider text-clay-muted">Document File</label>
-                              <div className="relative w-full h-10 bg-[#EFEBF5] rounded-[16px] shadow-clayPressed flex items-center justify-between px-3 cursor-pointer hover:bg-white transition-all overflow-hidden border border-transparent focus-within:border-clay-primary/20">
-                                <span className="text-[10px] text-clay-foreground font-semibold truncate pr-4">
-                                  {doc.file ? doc.file : 'Select file (PDF/Image)'}
+                              <div className={`relative w-full h-10 rounded-[16px] shadow-clayPressed flex items-center justify-between px-3 cursor-pointer hover:bg-white transition-all overflow-hidden border ${docUploading[doc.prefix] ? 'bg-amber-50 border-amber-300' : doc.file ? 'bg-emerald-50 border-emerald-200' : 'bg-[#EFEBF5] border-transparent focus-within:border-clay-primary/20'}`}>
+                                <span className="text-[10px] font-semibold truncate pr-4 flex items-center gap-1.5">
+                                  {docUploading[doc.prefix] ? (
+                                    <><span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></span><span className="text-amber-600">Uploading…</span></>
+                                  ) : doc.file ? (
+                                    <><span className="text-emerald-600">✓</span><span className="text-emerald-700 truncate">{doc.file.startsWith('http') ? 'Uploaded to ImageKit' : doc.file}</span></>
+                                  ) : (
+                                    <span className="text-clay-muted">Select file (PDF / Image)</span>
+                                  )}
                                 </span>
-                                <span className="bg-clay-primary text-white text-[9px] font-bold px-3 py-1 rounded-[10px] uppercase tracking-wider cursor-pointer shadow-clayButton">
-                                  Choose
-                                </span>
+                                {!docUploading[doc.prefix] && (
+                                  <span className={`text-white text-[9px] font-bold px-3 py-1 rounded-[10px] uppercase tracking-wider cursor-pointer shadow-clayButton flex-shrink-0 ${doc.file ? 'bg-emerald-500' : 'bg-clay-primary'}`}>
+                                    {doc.file ? 'Replace' : 'Choose'}
+                                  </span>
+                                )}
                                 <input
                                   type="file"
                                   accept=".pdf,.png,.jpg,.jpeg"
-                                  onChange={(e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                      doc.setFile(e.target.files[0].name);
+                                  disabled={docUploading[doc.prefix]}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setDocUploading(prev => ({ ...prev, [doc.prefix]: true }));
+                                    try {
+                                      const url = await uploadToImageKit(file, 'vehicle-docs');
+                                      doc.setFile(url);
+                                    } catch (err) {
+                                      alert(`Upload failed: ${err.message}`);
+                                    } finally {
+                                      setDocUploading(prev => ({ ...prev, [doc.prefix]: false }));
                                     }
                                   }}
                                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                 />
                               </div>
+                              {doc.file && doc.file.startsWith('http') && (
+                                <a
+                                  href={doc.file}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-1 flex items-center justify-center gap-1.5 w-full bg-white/80 hover:bg-white text-clay-primary border border-white/60 font-bold text-[10px] py-2 rounded-[12px] shadow-clayCard hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-wider cursor-pointer"
+                                  style={{ fontFamily: "Nunito, sans-serif" }}
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">visibility</span>
+                                  <span>View Uploaded Document</span>
+                                </a>
+                              )}
                             </div>
+
+
 
                             <div className="grid grid-cols-2 gap-2">
                               <div className="flex flex-col space-y-1">
