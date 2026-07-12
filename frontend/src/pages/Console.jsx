@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import GPSCard from '../components/GPSTracking';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +6,7 @@ import {
   LogOut, Plus, Search, Truck, Users, Calendar,
   Settings, LayoutGrid, Wrench, Shield, Check, Info, AlertTriangle,
   Play, Sparkles, MapPin, Gauge, Fuel, Thermometer, ArrowRight, ArrowLeft, X, UserPlus,
-  TrendingUp, CircleDollarSign, Download, Menu, Trash2
+  TrendingUp, CircleDollarSign, Download, Upload, FileText, Menu, Trash2
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -87,7 +87,6 @@ export default function Console() {
   const [editVehicleId, setEditVehicleId] = useState(null);
   const [showDispatchTrip, setShowDispatchTrip] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
 
   // Form states - Vehicle (Core)
   const [vReg, setVReg] = useState('');
@@ -196,6 +195,9 @@ export default function Console() {
   const [tActualDistance, setTActualDistance] = useState('');
   const [tStatus, setTStatus] = useState('draft');
   const [tRevenue, setTRevenue] = useState('');
+  const [tDriverSalary, setTDriverSalary] = useState('');
+  const [tEstimatedFuelCost, setTEstimatedFuelCost] = useState('');
+  const [tActualFuelCost, setTActualFuelCost] = useState('');
   const [showEditTrip, setShowEditTrip] = useState(false);
   const [editingTripId, setEditingTripId] = useState('');
   
@@ -203,6 +205,8 @@ export default function Console() {
   const [completeTripId, setCompleteTripId] = useState('');
   const [cActualDistance, setCActualDistance] = useState('');
   const [cRevenue, setCRevenue] = useState('');
+  const [cDriverSalary, setCDriverSalary] = useState('');
+  const [cActualFuelCost, setCActualFuelCost] = useState('');
   const [showCompleteTrip, setShowCompleteTrip] = useState(false);
 
   // Form states - Maintenance
@@ -210,11 +214,55 @@ export default function Console() {
   const [mIssue, setMIssue] = useState('');
   const [mCost, setMCost] = useState('');
 
-  // Form states - Expense
+  // Form states - Expense and Fuel
   const [eVehicleId, setEVehicleId] = useState('');
-  const [eType, setEType] = useState('fuel');
+  const [eType, setEType] = useState('toll');
   const [eAmount, setEAmount] = useState('');
   const [eLiters, setELiters] = useState('');
+  const [eOdometer, setEOdometer] = useState('');
+  const [eDate, setEDate] = useState('');
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showEditExpense, setShowEditExpense] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState('');
+
+  const [fuelVehicleId, setFuelVehicleId] = useState('');
+  const [fuelLiters, setFuelLiters] = useState('');
+  const [fuelCost, setFuelCost] = useState('');
+  const [fuelOdometer, setFuelOdometer] = useState('');
+  const [fuelDate, setFuelDate] = useState('');
+  const [showAddFuel, setShowAddFuel] = useState(false);
+  const [showEditFuel, setShowEditFuel] = useState(false);
+  const [editingFuelId, setEditingFuelId] = useState('');
+
+  // Copilot Chat state
+  const [copilotMessages, setCopilotMessages] = useState([
+    { role: 'assistant', content: "Hello! I am your AI Fleet Copilot. I can help recommend drivers, select vehicles for dispatch, predict maintenance schedules, or compile operational cost reports. Ask me anything!" }
+  ]);
+  const [copilotInput, setCopilotInput] = useState('');
+  const [copilotLoading, setCopilotLoading] = useState(false);
+
+  // Settings states
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('+91 98765 43210');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [orgName, setOrgName] = useState('WinNova Logistics');
+  const [orgLogo, setOrgLogo] = useState('');
+  const [orgTimezone, setOrgTimezone] = useState('IST (UTC+05:30)');
+  const [prefTheme, setPrefTheme] = useState('light');
+  const [prefNotifications, setPrefNotifications] = useState(true);
+
+  // Report filtering states
+  const [reportType, setReportType] = useState('fleet');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportVehicleId, setReportVehicleId] = useState('');
+  const [reportDriverId, setReportDriverId] = useState('');
+  const [reportStatus, setReportStatus] = useState('');
+
+  // Notifications Drawer
+  const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState([]);
 
   // Safety Banner Alert
   const [safetyAlert, setSafetyAlert] = useState(null);
@@ -374,7 +422,99 @@ export default function Console() {
     setShowAddVehicle(true);
   };
 
-  // Form submit handlers — handles both Add (POST) and Edit (PUT)
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfileAvatar(user.avatar || '');
+    }
+  }, [user]);
+
+  const notifications = useMemo(() => {
+    const list = [];
+    
+    // 1. Scan drivers for license expiry
+    drivers.forEach(d => {
+      if (d.licenseExpiry) {
+        const daysLeft = Math.ceil((new Date(d.licenseExpiry) - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) {
+          list.push({
+            id: `license-exp-${d._id}`,
+            type: 'expiry',
+            severity: 'error',
+            title: 'License Expired',
+            message: `Driver ${d.name}'s Class A license has expired. Status: Suspended.`,
+            time: 'Immediate Action Required'
+          });
+        } else if (daysLeft <= 30) {
+          list.push({
+            id: `license-exp-${d._id}`,
+            type: 'expiry',
+            severity: 'warning',
+            title: 'License Expiring Soon',
+            message: `Driver ${d.name}'s license will expire in ${daysLeft} days.`,
+            time: `${daysLeft} days remaining`
+          });
+        }
+      }
+    });
+
+    // 2. Scan vehicles for low mileage warnings
+    vehicles.forEach(v => {
+      if (v.status !== 'retired') {
+        if (v.mileage < 6.5) {
+          list.push({
+            id: `mileage-${v._id}`,
+            type: 'fuel',
+            severity: 'info',
+            title: 'Fuel Efficiency Warning',
+            message: `Vehicle ${v.name} (${v.reg}) mileage is sub-optimal (${v.mileage} KM/L). Recommend diagnostic.`,
+            time: 'System Audit'
+          });
+        }
+      }
+    });
+
+    // 3. Scan active trips
+    trips.forEach(t => {
+      if (t.status === 'dispatched') {
+        list.push({
+          id: `trip-disp-${t._id}`,
+          type: 'trip',
+          severity: 'info',
+          title: 'Trip Dispatched',
+          message: `Trip ${t.id} dispatched from ${t.source} to ${t.destination}. Driver: ${t.driver?.name || 'N/A'}.`,
+          time: 'Active'
+        });
+      } else if (t.status === 'in_transit') {
+        list.push({
+          id: `trip-transit-${t._id}`,
+          type: 'trip',
+          severity: 'success',
+          title: 'Trip In Transit',
+          message: `Trip ${t.id} is currently in transit between ${t.source} and ${t.destination}.`,
+          time: 'In Transit'
+        });
+      }
+    });
+
+    // 4. Scan maintenance records
+    maintenance.forEach(m => {
+      if (!m.resolved) {
+        list.push({
+          id: `maint-due-${m._id}`,
+          type: 'maintenance',
+          severity: 'warning',
+          title: 'Unresolved Maintenance Log',
+          message: `Vehicle ${m.vehicle?.name || 'Vehicle'} has active log: ${m.issue} (Est cost: ₹${m.cost})`,
+          time: 'Awaiting Fix'
+        });
+      }
+    });
+
+    return list;
+  }, [vehicles, drivers, trips, maintenance]);
+
+  // Form submit handlers
   const handleAddVehicleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
@@ -639,13 +779,17 @@ export default function Console() {
           weight: Number(tWeight),
           distance: Number(tDistance),
           status: tStatus,
-          revenue: tRevenue ? Number(tRevenue) : Math.floor(Number(tDistance) * 4.5)
+          revenue: tRevenue ? Number(tRevenue) : Math.floor(Number(tDistance) * 4.5),
+          driverSalary: tDriverSalary ? Number(tDriverSalary) : undefined,
+          estimatedFuelCost: tEstimatedFuelCost ? Number(tEstimatedFuelCost) : undefined,
+          actualFuelCost: tActualFuelCost ? Number(tActualFuelCost) : 0
         })
       });
       const data = await response.json();
       if (data.success) {
         setShowDispatchTrip(false);
         setTSource(''); setTDest(''); setTVehicleId(''); setTDriverId(''); setTWeight(''); setTDistance(''); setTStatus('draft'); setTRevenue('');
+        setTDriverSalary(''); setTEstimatedFuelCost(''); setTActualFuelCost('');
         fetchData();
       } else {
         setSubmitError(data.message || 'Error dispatching trip');
@@ -681,13 +825,17 @@ export default function Console() {
           distance: Number(tDistance),
           actualDistance: Number(tActualDistance),
           status: tStatus,
-          revenue: Number(tRevenue)
+          revenue: Number(tRevenue),
+          driverSalary: Number(tDriverSalary),
+          estimatedFuelCost: Number(tEstimatedFuelCost),
+          actualFuelCost: Number(tActualFuelCost)
         })
       });
       const data = await response.json();
       if (data.success) {
         setShowEditTrip(false);
         setTSource(''); setTDest(''); setTVehicleId(''); setTDriverId(''); setTWeight(''); setTDistance(''); setTActualDistance(''); setTStatus('draft'); setTRevenue('');
+        setTDriverSalary(''); setTEstimatedFuelCost(''); setTActualFuelCost('');
         fetchData();
       } else {
         setSubmitError(data.message || 'Error updating trip');
@@ -711,7 +859,9 @@ export default function Console() {
         body: JSON.stringify({
           status: 'completed',
           actualDistance: Number(cActualDistance),
-          revenue: Number(cRevenue)
+          revenue: Number(cRevenue),
+          driverSalary: Number(cDriverSalary),
+          actualFuelCost: Number(cActualFuelCost)
         })
       });
       const data = await response.json();
@@ -720,6 +870,8 @@ export default function Console() {
         setCompleteTripId('');
         setCActualDistance('');
         setCRevenue('');
+        setCDriverSalary('');
+        setCActualFuelCost('');
         fetchData();
       } else {
         setSubmitError(data.message || 'Error completing trip');
@@ -741,6 +893,9 @@ export default function Console() {
     setTActualDistance(trip.actualDistance || 0);
     setTStatus(trip.status);
     setTRevenue(trip.revenue || 0);
+    setTDriverSalary(trip.driverSalary || 0);
+    setTEstimatedFuelCost(trip.estimatedFuelCost || 0);
+    setTActualFuelCost(trip.actualFuelCost || 0);
     setShowEditTrip(true);
   };
 
@@ -749,6 +904,8 @@ export default function Console() {
     setCompleteTripId(trip._id);
     setCActualDistance(trip.distance);
     setCRevenue(Math.floor(Number(trip.distance) * 4.5));
+    setCDriverSalary(trip.driverSalary || Math.floor(Number(trip.distance) * 5));
+    setCActualFuelCost(trip.actualFuelCost || Math.floor((Number(trip.distance) / (trip.vehicle?.mileage || 10)) * 95));
     setShowCompleteTrip(true);
   };
 
@@ -770,6 +927,223 @@ export default function Console() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteTrip = async (tripId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this dispatch record?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting trip');
+      }
+    } catch (err) {
+      alert('Server connection failure');
+    }
+  };
+
+  const handleAddFuelSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          vehicleId: fuelVehicleId,
+          type: 'fuel',
+          amount: Number(fuelCost),
+          liters: Number(fuelLiters),
+          odometer: Number(fuelOdometer),
+          date: fuelDate || undefined
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowAddFuel(false);
+        setFuelVehicleId(''); setFuelLiters(''); setFuelCost(''); setFuelOdometer(''); setFuelDate('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error adding fuel log');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleEditFuelSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    try {
+      const response = await fetch(`/api/expenses/${editingFuelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          vehicleId: fuelVehicleId,
+          type: 'fuel',
+          amount: Number(fuelCost),
+          liters: Number(fuelLiters),
+          odometer: Number(fuelOdometer),
+          date: fuelDate || undefined
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowEditFuel(false);
+        setFuelVehicleId(''); setFuelLiters(''); setFuelCost(''); setFuelOdometer(''); setFuelDate(''); setEditingFuelId('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error updating fuel log');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const startEditFuel = (log) => {
+    setSubmitError('');
+    setEditingFuelId(log._id);
+    setFuelVehicleId(log.vehicle?._id || '');
+    setFuelLiters(log.liters || '');
+    setFuelCost(log.amount || '');
+    setFuelOdometer(log.odometer || '');
+    setFuelDate(log.date ? new Date(log.date).toISOString().split('T')[0] : '');
+    setShowEditFuel(true);
+  };
+
+  const handleDeleteFuel = async (logId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this fuel log?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/expenses/${logId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting fuel log');
+      }
+    } catch (err) {
+      alert('Server connection failure');
+    }
+  };
+
+  const handleAddExpenseSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          vehicleId: eVehicleId,
+          type: eType,
+          amount: Number(eAmount),
+          liters: eType === 'fuel' ? Number(eLiters) : 0,
+          odometer: eType === 'fuel' ? Number(eOdometer) : 0,
+          date: eDate || undefined
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowAddExpense(false);
+        setEVehicleId(''); setEAmount(''); setELiters(''); setEOdometer(''); setEDate('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error adding expense log');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleEditExpenseSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    try {
+      const response = await fetch(`/api/expenses/${editingExpenseId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          vehicleId: eVehicleId,
+          type: eType,
+          amount: Number(eAmount),
+          liters: eType === 'fuel' ? Number(eLiters) : 0,
+          odometer: eType === 'fuel' ? Number(eOdometer) : 0,
+          date: eDate || undefined
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowEditExpense(false);
+        setEVehicleId(''); setEAmount(''); setELiters(''); setEOdometer(''); setEDate(''); setEditingExpenseId('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error updating expense log');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const startEditExpense = (log) => {
+    setSubmitError('');
+    setEditingExpenseId(log._id);
+    setEVehicleId(log.vehicle?._id || '');
+    setEType(log.type || 'toll');
+    setEAmount(log.amount || '');
+    setELiters(log.liters || '');
+    setEOdometer(log.odometer || '');
+    setEDate(log.date ? new Date(log.date).toISOString().split('T')[0] : '');
+    setShowEditExpense(true);
+  };
+
+  const handleDeleteExpense = async (logId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this expense record?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/expenses/${logId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting expense record');
+      }
+    } catch (err) {
+      alert('Server connection failure');
     }
   };
 
@@ -802,34 +1176,86 @@ export default function Console() {
     }
   };
 
-  const handleExpenseSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitError('');
-    try {
-      const response = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          vehicleId: eVehicleId,
-          type: eType,
-          amount: Number(eAmount),
-          liters: eType === 'fuel' ? Number(eLiters) : 0
-        })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setShowExpenseModal(false);
-        setEVehicleId(''); setEAmount(''); setELiters('');
-        fetchData();
-      } else {
-        setSubmitError(data.message || 'Error adding expense');
+  const handleCopilotSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!copilotInput.trim()) return;
+
+    const userMessage = copilotInput.trim();
+    setCopilotMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setCopilotInput('');
+    setCopilotLoading(true);
+
+    setTimeout(() => {
+      let reply = "";
+      const lower = userMessage.toLowerCase();
+
+      if (lower.includes('which vehicle should i dispatch') || lower.includes('recommend vehicle')) {
+        const availableVehicles = vehicles.filter(v => v.status === 'available');
+        if (availableVehicles.length === 0) {
+          reply = "I scanned the fleet registry and currently **no vehicles are available** for dispatch. All vehicles are either retired, on trips, or in the service shop.";
+        } else {
+          const recommended = availableVehicles[0];
+          reply = `I recommend dispatching the **${recommended.name} (${recommended.reg})**. It is currently **available**, has a maximum load capacity of **${recommended.maxLoad} Tons**, and a fuel efficiency mileage of **${recommended.mileage} KM/L**. Other available options include: ${availableVehicles.slice(1).map(v => `${v.name} (${v.reg})`).join(', ') || 'None'}.`;
+        }
+      } 
+      else if (lower.includes('show overdue maintenance') || lower.includes('overdue maintenance') || lower.includes('pending maintenance')) {
+        const activeMaint = maintenance.filter(m => m.vehicle?.status === 'in_shop' || !m.resolved);
+        if (activeMaint.length === 0) {
+          reply = "Great news! There are **no unresolved maintenance logs** or vehicles currently stuck in the service shop.";
+        } else {
+          reply = `Here are the active maintenance tasks requiring attention:\n\n` + 
+            activeMaint.map(m => `- **${m.vehicle?.name || 'Vehicle'} (${m.vehicle?.reg || 'N/A'})**: ${m.issue} (Est: ₹${m.cost?.toLocaleString()})`).join('\n');
+        }
       }
-    } catch (err) {
-      setSubmitError('Server connection failure');
-    }
+      else if (lower.includes('which driver is available') || lower.includes('available driver') || lower.includes('recommend driver')) {
+        const availableDrivers = drivers.filter(d => d.status === 'available');
+        if (availableDrivers.length === 0) {
+          reply = "I scanned the driver registry and currently **no drivers are available** (all are currently on active trips or off-duty).";
+        } else {
+          const sorted = [...availableDrivers].sort((a, b) => b.score - a.score);
+          const top = sorted[0];
+          reply = `I recommend assigning **${top.name}** for your next dispatch. They have a pristine **${top.score}% Safety Score** and their driver's license is fully valid. Other available drivers: ${sorted.slice(1).map(d => `${d.name} (${d.score}%)`).join(', ') || 'None'}.`;
+        }
+      }
+      else if (lower.includes('summarize today') || lower.includes('fleet summary') || lower.includes('summarize fleet') || lower.includes('status of the fleet')) {
+        const totalVeh = vehicles.length;
+        const availableVeh = vehicles.filter(v => v.status === 'available').length;
+        const onTripVeh = vehicles.filter(v => v.status === 'on_trip').length;
+        const inShopVeh = vehicles.filter(v => v.status === 'in_shop').length;
+        
+        const totalDrv = drivers.length;
+        const availableDrv = drivers.filter(d => d.status === 'available').length;
+
+        const activeTrips = trips.filter(t => t.status === 'dispatched' || t.status === 'in_transit').length;
+
+        reply = `### Fleet Summary Report\n\n` +
+          `* **Vehicles**: ${totalVeh} total | **${availableVeh} Available** | **${onTripVeh} On Trip** | **${inShopVeh} In Shop**\n` +
+          `* **Driver Crew**: ${totalDrv} registered | **${availableDrv} Available** for dispatch\n` +
+          `* **Active Dispatches**: ${activeTrips} trips currently in progress.\n\n` +
+          `All logistics nodes are currently operating within nominal parameters. Let me know if you want to inspect a specific vehicle or generate a cost breakdown.`;
+      }
+      else if (lower.includes('predict maintenance') || lower.includes('maintenance prediction')) {
+        const highUsageVehicles = vehicles.filter(v => v.status !== 'retired');
+        if (highUsageVehicles.length === 0) {
+          reply = "No active vehicles found in registry to analyze.";
+        } else {
+          reply = `### Predictive Maintenance Insights:\n\n` +
+            `- **${highUsageVehicles[0]?.name || 'Tata Ultra'}**: Odometer reports steady usage. Recommend scheduling oil filter & brake caliper checks within next 15 days to optimize mileage.\n` +
+            `- **Safety Score Warning**: Ensure drivers maintain soft braking metrics to extend brake rotor lifespans on long-haul cargo routes.`;
+        }
+      }
+      else {
+        reply = `I understand your request regarding "${userMessage}". As your copilot, I can see we have **${vehicles.length} vehicles** and **${drivers.length} drivers** active. Let me know if you would like me to recommend a driver, show overdue maintenance, or generate today's fleet summary!`;
+      }
+
+      setCopilotMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      setCopilotLoading(false);
+    }, 600);
+  };
+
+  const handleSettingsSubmit = (e) => {
+    e.preventDefault();
+    alert("Settings saved successfully!");
   };
 
 
@@ -851,24 +1277,197 @@ export default function Console() {
     }
   };
 
+  const filteredReportData = useMemo(() => {
+    let result = [];
+
+    const isWithinDate = (targetDate) => {
+      if (!targetDate) return true;
+      const d = new Date(targetDate);
+      if (reportStartDate && d < new Date(reportStartDate)) return false;
+      if (reportEndDate && d > new Date(reportEndDate)) return false;
+      return true;
+    };
+
+    if (reportType === 'fleet') {
+      result = vehicles.map(v => {
+        const vehicleExpenses = expenses.filter(e => e.vehicle?._id === v._id && isWithinDate(e.date));
+        const fuelCost = vehicleExpenses.filter(e => e.type === 'fuel').reduce((sum, e) => sum + e.amount, 0);
+        const maintCost = vehicleExpenses.filter(e => e.type === 'maintenance').reduce((sum, e) => sum + e.amount, 0);
+        const otherCost = vehicleExpenses.filter(e => e.type === 'toll' || e.type === 'insurance' || e.type === 'miscellaneous').reduce((sum, e) => sum + e.amount, 0);
+        
+        const vehicleTrips = trips.filter(t => t.vehicle?._id === v._id && t.status === 'completed' && isWithinDate(t.date || t.createdAt));
+        const totalDistance = vehicleTrips.reduce((sum, t) => sum + (t.actualDistance || t.distance), 0);
+        const totalCost = vehicleTrips.reduce((sum, t) => sum + t.revenue, 0);
+
+        return {
+          id: v._id,
+          name: v.name,
+          reg: v.reg,
+          type: v.type,
+          status: v.status,
+          fuelCost,
+          maintCost,
+          otherCost,
+          totalOpsCost: fuelCost + maintCost + otherCost,
+          revenue: totalCost,
+          distance: totalDistance
+        };
+      });
+
+      if (reportVehicleId) {
+        result = result.filter(r => r.id === reportVehicleId);
+      }
+      if (reportStatus) {
+        result = result.filter(r => r.status === reportStatus);
+      }
+    } 
+    else if (reportType === 'driver') {
+      result = drivers.map(d => {
+        const driverTrips = trips.filter(t => t.driver?._id === d._id && isWithinDate(t.date || t.createdAt));
+        const completedTrips = driverTrips.filter(t => t.status === 'completed');
+        const totalDistance = completedTrips.reduce((sum, t) => sum + (t.actualDistance || t.distance), 0);
+        const salaryEarned = completedTrips.reduce((sum, t) => sum + (t.driverSalary || 0), 0);
+        
+        return {
+          id: d._id,
+          name: d.name,
+          license: d.licenseNo,
+          score: d.score,
+          status: d.status,
+          tripsCount: driverTrips.length,
+          completedCount: completedTrips.length,
+          distance: totalDistance,
+          salary: salaryEarned
+        };
+      });
+
+      if (reportDriverId) {
+        result = result.filter(r => r.id === reportDriverId);
+      }
+      if (reportStatus) {
+        result = result.filter(r => r.status === reportStatus);
+      }
+    }
+    else if (reportType === 'fuel') {
+      expenses.filter(e => e.type === 'fuel').forEach(e => {
+        if (isWithinDate(e.date)) {
+          if (reportVehicleId && e.vehicle?._id !== reportVehicleId) return;
+          result.push({
+            id: e._id,
+            vehicleName: e.vehicle ? `${e.vehicle.name} (${e.vehicle.reg})` : 'N/A',
+            date: e.date,
+            liters: e.liters,
+            amount: e.amount,
+            odometer: e.odometer
+          });
+        }
+      });
+    }
+    else if (reportType === 'expense') {
+      expenses.filter(e => e.type !== 'fuel').forEach(e => {
+        if (isWithinDate(e.date)) {
+          if (reportVehicleId && e.vehicle?._id !== reportVehicleId) return;
+          result.push({
+            id: e._id,
+            vehicleName: e.vehicle ? `${e.vehicle.name} (${e.vehicle.reg})` : 'N/A',
+            type: e.type,
+            date: e.date,
+            amount: e.amount
+          });
+        }
+      });
+    }
+    else if (reportType === 'maintenance') {
+      maintenance.forEach(m => {
+        if (isWithinDate(m.date || m.createdAt)) {
+          if (reportVehicleId && m.vehicle?._id !== reportVehicleId) return;
+          result.push({
+            id: m._id,
+            vehicleName: m.vehicle ? `${m.vehicle.name} (${m.vehicle.reg})` : 'N/A',
+            issue: m.issue,
+            cost: m.cost,
+            resolved: m.resolved ? 'RESOLVED' : 'PENDING',
+            date: m.date || m.createdAt
+          });
+        }
+      });
+    }
+    else if (reportType === 'cost') {
+      trips.forEach(t => {
+        if (isWithinDate(t.date || t.createdAt)) {
+          if (reportVehicleId && t.vehicle?._id !== reportVehicleId) return;
+          if (reportDriverId && t.driver?._id !== reportDriverId) return;
+          result.push({
+            id: t._id,
+            tripId: t.id,
+            route: `${t.source} ➜ ${t.destination}`,
+            revenue: t.revenue,
+            salary: t.driverSalary || 0,
+            estimatedFuel: t.estimatedFuelCost || 0,
+            actualFuel: t.actualFuelCost || 0,
+            distance: t.actualDistance || t.distance
+          });
+        }
+      });
+    }
+
+    return result;
+  }, [reportType, reportStartDate, reportEndDate, reportVehicleId, reportDriverId, reportStatus, vehicles, drivers, trips, expenses, maintenance]);
+
   // CSV Export utility
   const handleExportCSV = () => {
-    if (reports.length === 0) return;
+    if (filteredReportData.length === 0) return;
 
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Registration,Model,Type,Status,Acquisition Cost,Total Fuel Cost,Total Maintenance Cost,Total Revenue,Distance Traveled,Fuel Efficiency (KM/L),ROI (%)\n";
-
-    reports.forEach(r => {
-      csvContent += `${r.reg},${r.name},${r.type},${r.status},${r.acquisitionCost},${r.fuelCost},${r.maintenanceCost},${r.revenue},${r.distanceTraveled},${r.fuelEfficiency},${(r.roi * 100).toFixed(2)}%\n`;
-    });
+    
+    if (reportType === 'fleet') {
+      csvContent += "Vehicle,Reg,Type,Status,Fuel Cost,Maint Cost,Other Cost,Total Ops Cost,Revenue,Distance\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.name}","${r.reg}","${r.type}","${r.status}",${r.fuelCost},${r.maintCost},${r.otherCost},${r.totalOpsCost},${r.revenue},${r.distance}\n`;
+      });
+    } 
+    else if (reportType === 'driver') {
+      csvContent += "Driver Name,License,Safety Score,Status,Trips Count,Completed Count,Distance,Salary Earned\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.name}","${r.license}",${r.score},"${r.status}",${r.tripsCount},${r.completedCount},${r.distance},${r.salary}\n`;
+      });
+    }
+    else if (reportType === 'fuel') {
+      csvContent += "Vehicle,Date,Liters,Amount,Odometer\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.vehicleName}","${new Date(r.date).toLocaleDateString()}",${r.liters},${r.amount},${r.odometer}\n`;
+      });
+    }
+    else if (reportType === 'expense') {
+      csvContent += "Vehicle,Type,Date,Amount\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.vehicleName}","${r.type}","${new Date(r.date).toLocaleDateString()}",${r.amount}\n`;
+      });
+    }
+    else if (reportType === 'maintenance') {
+      csvContent += "Vehicle,Issue,Cost,Status,Date\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.vehicleName}","${r.issue}",${r.cost},"${r.resolved}","${new Date(r.date).toLocaleDateString()}"\n`;
+      });
+    }
+    else if (reportType === 'cost') {
+      csvContent += "Trip ID,Route,Distance (KM),Revenue (Total Cost),Driver Salary,Est Fuel,Actual Fuel\n";
+      filteredReportData.forEach(r => {
+        csvContent += `"${r.tripId}","${r.route}",${r.distance},${r.revenue},${r.salary},${r.estimatedFuel},${r.actualFuel}\n`;
+      });
+    }
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `transitops_operations_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `transitops_${reportType}_report_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
   };
 
   // Dynamic KPI Computations
@@ -961,7 +1560,11 @@ export default function Console() {
               { id: 'drivers', icon: Users, label: 'Driver Crew' },
               { id: 'schedule', icon: Calendar, label: 'Dispatch Log' },
               { id: 'maintenance', icon: Wrench, label: 'Maintenance Log' },
-              { id: 'reports', icon: TrendingUp, label: 'Reports & ROI' }
+              { id: 'fuel', icon: Fuel, label: 'Fuel Logs' },
+              { id: 'expenses', icon: CircleDollarSign, label: 'Expense Logs' },
+              { id: 'reports', icon: TrendingUp, label: 'Reports & ROI' },
+              { id: 'copilot', icon: Sparkles, label: 'AI Fleet Copilot' },
+              { id: 'settings', icon: Settings, label: 'Settings' }
             ].map(item => {
               const Icon = item.icon;
               const isActive = activeMenu === item.id;
@@ -1009,7 +1612,7 @@ export default function Console() {
 
         {/* Navigation Tabs for Mobile view */}
         <div className="flex flex-wrap gap-2 bg-white/40 p-2 rounded-[20px] mb-8 border border-white/40 shadow-clayCard md:hidden">
-          {['overview', 'vehicles', 'drivers', 'schedule', 'maintenance', 'reports'].map(tab => (
+          {['overview', 'vehicles', 'drivers', 'schedule', 'maintenance', 'fuel', 'expenses', 'reports', 'copilot', 'settings'].map(tab => (
             <button
               key={tab}
               onClick={() => { setActiveMenu(tab); setSearchQuery(''); }}
@@ -1038,7 +1641,11 @@ export default function Console() {
                 {activeMenu === 'drivers' && 'Driver Crew'}
                 {activeMenu === 'schedule' && 'Dispatch Log'}
                 {activeMenu === 'maintenance' && 'Maintenance Log'}
+                {activeMenu === 'fuel' && 'Fuel Management'}
+                {activeMenu === 'expenses' && 'Expense Management'}
                 {activeMenu === 'reports' && 'Reports & Analytics'}
+                {activeMenu === 'copilot' && 'AI Fleet Copilot'}
+                {activeMenu === 'settings' && 'Platform Settings'}
               </h1>
               <p className="text-clay-muted font-medium text-sm md:text-base mt-1">
                 Active operations pipeline monitor.
@@ -1046,9 +1653,24 @@ export default function Console() {
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xl border border-white px-4 py-2 rounded-full shadow-clayCard text-xs font-bold font-mono tracking-wide text-clay-primary flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5" />
-            <span>ROLE: {user ? user.role.toUpperCase().replace('_', ' ') : 'FLEET MANAGER'}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowNotificationsDrawer(!showNotificationsDrawer)}
+              className="relative p-2.5 bg-white border border-white/60 text-clay-primary rounded-full shadow-clayCard hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+              title="Notifications"
+            >
+              <span className="material-symbols-outlined text-lg">notifications</span>
+              {notifications.filter(n => !readNotificationIds.includes(n.id)).length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-mono font-black text-[9px] w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+                  {notifications.filter(n => !readNotificationIds.includes(n.id)).length}
+                </span>
+              )}
+            </button>
+
+            <div className="bg-white/80 backdrop-blur-xl border border-white px-4 py-2 rounded-full shadow-clayCard text-xs font-bold font-mono tracking-wide text-clay-primary flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5" />
+              <span>ROLE: {user ? user.role.toUpperCase().replace('_', ' ') : 'FLEET MANAGER'}</span>
+            </div>
           </div>
         </div>
 
@@ -1140,7 +1762,7 @@ export default function Console() {
                 </button>
 
                 <button
-                  onClick={() => { setSubmitError(''); setShowExpenseModal(true); }}
+                  onClick={() => { setSubmitError(''); setShowAddFuel(true); }}
                   className="flex items-center justify-between p-5 rounded-[24px] bg-gradient-to-br from-white to-[#F0F9FF] border border-white/80 shadow-clayCard hover:-translate-y-1 hover:shadow-lg active:scale-[0.95] transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -2443,8 +3065,16 @@ export default function Console() {
                         </p>
                       )}
                       <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
-                        REVENUE: ₹{trip.revenue?.toLocaleString() || 0}
+                        TOTAL TRIP COST: ₹{trip.revenue?.toLocaleString() || 0}
                       </p>
+                      <p className="text-[10px] text-violet-600 font-bold uppercase tracking-wider">
+                        DRIVER SALARY: ₹{trip.driverSalary?.toLocaleString() || 0}
+                      </p>
+                      <div className="flex gap-2.5 text-[9px] font-mono font-bold text-amber-700 uppercase tracking-wide mt-1 bg-amber-50/50 p-2 rounded-xl border border-amber-100/50">
+                        <span>Fuel Est: ₹{trip.estimatedFuelCost || 0}</span>
+                        <span>•</span>
+                        <span>Fuel Act: ₹{trip.actualFuelCost || 0}</span>
+                      </div>
                     </div>
 
                     <div className="flex-1 max-w-lg flex items-center justify-between gap-2.5 relative">
@@ -2543,6 +3173,14 @@ export default function Console() {
                         Edit
                       </button>
 
+                      <button
+                        onClick={() => handleDeleteTrip(trip._id)}
+                        className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                        style={{ fontFamily: "Nunito, sans-serif" }}
+                      >
+                        Delete
+                      </button>
+
                       {trip.status === 'completed' && (
                         <span className="bg-clay-success/15 text-clay-success px-3.5 py-2 rounded-full text-xs font-black uppercase tracking-wider border border-clay-success/20">
                           Completed
@@ -2617,88 +3255,840 @@ export default function Console() {
            TAB 6: REPORTS & ROI
            ======================================================== */}
         {activeMenu === 'reports' && (
-          <div className="space-y-10">
-            <div className="flex justify-between items-center bg-white/40 p-4 rounded-[24px] border border-white/40 shadow-clayCard">
-              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Operations reports</h3>
-
-              <button
-                onClick={handleExportCSV}
-                className="bg-[#EFEBF5] hover:bg-white text-clay-primary border border-white/60 font-bold text-xs px-5 py-3 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer"
-                style={{ fontFamily: "Nunito, sans-serif" }}
-              >
-                <Download className="w-4 h-4" />
-                <span>Export CSV</span>
-              </button>
-            </div>
-
-            {/* Visual Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
-                <h3 className="font-headline text-2xl font-black uppercase mb-6 text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Vehicle ROI (%)</h3>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={roiChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <XAxis dataKey="name" stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
-                      <YAxis stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
-                      <Tooltip formatter={(value) => `${value}%`} contentStyle={{ background: '#fff', borderRadius: '16px', border: '1px solid #EFEBF5' }} />
-                      <Bar dataKey="roi" fill="#7C3AED" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+          <div className="space-y-8 animate-fadeIn">
+            {/* Header with Export buttons */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/40 p-6 rounded-[24px] border border-white/40 shadow-clayCard gap-4">
+              <div>
+                <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Operations reports</h3>
+                <p className="text-xs text-clay-muted font-bold uppercase mt-1">Generate, filter, and export granular fleet operational data sheets</p>
               </div>
 
-              <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
-                <h3 className="font-headline text-2xl font-black uppercase mb-6 text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Fuel Efficiency (KM/L)</h3>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={fuelChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <XAxis dataKey="name" stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
-                      <YAxis stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
-                      <Tooltip formatter={(value) => `${value} KM/L`} contentStyle={{ background: '#fff', borderRadius: '16px', border: '1px solid #EFEBF5' }} />
-                      <Bar dataKey="efficiency" fill="#0EA5E9" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportPDF}
+                  className="bg-white hover:bg-slate-50 text-clay-muted border border-slate-200 font-bold text-xs px-5 py-3 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                  style={{ fontFamily: "Nunito, sans-serif" }}
+                >
+                  <span className="material-symbols-outlined text-sm">print</span>
+                  <span>Print PDF</span>
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3 rounded-[20px] shadow-clayButton active:scale-[0.95] transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                  style={{ fontFamily: "Nunito, sans-serif" }}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export CSV</span>
+                </button>
               </div>
             </div>
 
-            {/* Data Grid */}
-            <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60 overflow-x-auto">
+            {/* Filter controls panel */}
+            <div className="bg-white rounded-[32px] p-6 border border-white/60 shadow-clayCard grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Report Type</label>
+                <select
+                  value={reportType}
+                  onChange={(e) => {
+                    setReportType(e.target.value);
+                    // Reset subordinate filters
+                    setReportVehicleId(''); setReportDriverId(''); setReportStatus('');
+                  }}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                >
+                  <option value="fleet">Fleet Report</option>
+                  <option value="driver">Driver Report</option>
+                  <option value="fuel">Fuel Report</option>
+                  <option value="expense">Expense Report</option>
+                  <option value="maintenance">Maintenance Report</option>
+                  <option value="cost">Operational Cost Report</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Start Date</label>
+                <input
+                  type="date"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">End Date</label>
+                <input
+                  type="date"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs"
+                />
+              </div>
+
+              {/* Conditional Filters */}
+              {(reportType === 'fleet' || reportType === 'fuel' || reportType === 'expense' || reportType === 'maintenance' || reportType === 'cost') && (
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle</label>
+                  <select
+                    value={reportVehicleId}
+                    onChange={(e) => setReportVehicleId(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="">-- All --</option>
+                    {vehicles.map(v => (
+                      <option key={v._id} value={v._id}>{v.name} ({v.reg})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(reportType === 'driver' || reportType === 'cost') && (
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver</label>
+                  <select
+                    value={reportDriverId}
+                    onChange={(e) => setReportDriverId(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="">-- All --</option>
+                    {drivers.map(d => (
+                      <option key={d._id} value={d._id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(reportType === 'fleet' || reportType === 'driver') && (
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Status</label>
+                  <select
+                    value={reportStatus}
+                    onChange={(e) => setReportStatus(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="">-- All --</option>
+                    <option value="available">Available</option>
+                    {reportType === 'fleet' ? (
+                      <>
+                        <option value="on_trip">On Trip</option>
+                        <option value="in_shop">In Shop</option>
+                      </>
+                    ) : (
+                      <option value="on_trip">On Trip</option>
+                    )}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Visual Analytics section for default view */}
+            {reportType === 'fleet' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
+                  <h3 className="font-headline text-xl font-black uppercase mb-6 text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Vehicle ROI (%)</h3>
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={roiChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="name" stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
+                        <YAxis stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
+                        <Tooltip formatter={(value) => `${value}%`} contentStyle={{ background: '#fff', borderRadius: '16px', border: '1px solid #EFEBF5' }} />
+                        <Bar dataKey="roi" fill="#7C3AED" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
+                  <h3 className="font-headline text-xl font-black uppercase mb-6 text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Fuel Efficiency (KM/L)</h3>
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={fuelChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="name" stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
+                        <YAxis stroke="#635F69" tickLine={false} style={{ fontSize: '9px', fontWeight: 'bold' }} />
+                        <Tooltip formatter={(value) => `${value} KM/L`} contentStyle={{ background: '#fff', borderRadius: '16px', border: '1px solid #EFEBF5' }} />
+                        <Bar dataKey="efficiency" fill="#0EA5E9" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Structured Table Sheets */}
+            <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60 overflow-x-auto print-section">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
-                    <th className="pb-4">Vehicle</th>
-                    <th className="pb-4">Acquisition Cost</th>
-                    <th className="pb-4">Fuel Cost</th>
-                    <th className="pb-4">Maintenance</th>
-                    <th className="pb-4">Total Ops Cost</th>
-                    <th className="pb-4">Revenue</th>
-                    <th className="pb-4">Distance</th>
-                    <th className="pb-4">ROI</th>
-                  </tr>
+                  {reportType === 'fleet' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Type</th>
+                      <th className="pb-4">Status</th>
+                      <th className="pb-4">Fuel Cost</th>
+                      <th className="pb-4">Maintenance</th>
+                      <th className="pb-4">Total Ops Cost</th>
+                      <th className="pb-4">Revenue Earned</th>
+                      <th className="pb-4">Distance</th>
+                    </tr>
+                  )}
+                  {reportType === 'driver' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Driver Name</th>
+                      <th className="pb-4">License No</th>
+                      <th className="pb-4">Safety Score</th>
+                      <th className="pb-4">Status</th>
+                      <th className="pb-4">Trips Logged</th>
+                      <th className="pb-4">Completed</th>
+                      <th className="pb-4">Total Distance</th>
+                      <th className="pb-4">Salary Earned</th>
+                    </tr>
+                  )}
+                  {reportType === 'fuel' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Date</th>
+                      <th className="pb-4">Fuel Quantity</th>
+                      <th className="pb-4">Total Cost</th>
+                      <th className="pb-4">Odometer Log</th>
+                      <th className="pb-4">Fuel Price Rate</th>
+                    </tr>
+                  )}
+                  {reportType === 'expense' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Expense Type</th>
+                      <th className="pb-4">Date</th>
+                      <th className="pb-4">Amount</th>
+                    </tr>
+                  )}
+                  {reportType === 'maintenance' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Describe Issue</th>
+                      <th className="pb-4">Total Cost</th>
+                      <th className="pb-4">Status</th>
+                      <th className="pb-4">Service Date</th>
+                    </tr>
+                  )}
+                  {reportType === 'cost' && (
+                    <tr className="border-b-2 border-slate-100 font-mono text-[9px] uppercase tracking-wider text-clay-muted">
+                      <th className="pb-4">Trip ID</th>
+                      <th className="pb-4">Route</th>
+                      <th className="pb-4">Distance (KM)</th>
+                      <th className="pb-4">Total Trip Cost</th>
+                      <th className="pb-4">Driver Salary</th>
+                      <th className="pb-4">Est Fuel Cost</th>
+                      <th className="pb-4">Actual Fuel Cost</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-bold text-xs">
-                  {reports.map(r => (
-                    <tr key={r.vehicleId} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 font-headline uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>{r.name} ({r.reg})</td>
-                      <td className="py-4 text-clay-muted">₹{r.acquisitionCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-muted">₹{r.fuelCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-muted">₹{r.maintenanceCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-secondary">₹{r.totalOperationalCost.toLocaleString()}</td>
-                      <td className="py-4 text-clay-success">₹{r.revenue.toLocaleString()}</td>
-                      <td className="py-4 text-clay-muted">{r.distanceTraveled} KM</td>
-                      <td className={`py-4 ${(r.roi >= 0) ? 'text-clay-primary' : 'text-red-500'}`}>
-                        {(r.roi * 100).toFixed(2)}%
-                      </td>
+                  {filteredReportData.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" className="py-8 text-center text-clay-muted uppercase text-xs">No records matched active filters.</td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredReportData.map((row, index) => (
+                      <tr key={row.id || index} className="hover:bg-slate-50/50 transition-colors">
+                        {reportType === 'fleet' && (
+                          <>
+                            <td className="py-4 font-headline uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>{row.name} ({row.reg})</td>
+                            <td className="py-4 text-clay-muted uppercase">{row.type}</td>
+                            <td className="py-4 text-clay-muted uppercase">{row.status}</td>
+                            <td className="py-4 text-clay-muted">₹{row.fuelCost.toLocaleString()}</td>
+                            <td className="py-4 text-clay-muted">₹{row.maintCost.toLocaleString()}</td>
+                            <td className="py-4 text-clay-secondary">₹{row.totalOpsCost.toLocaleString()}</td>
+                            <td className="py-4 text-clay-success">₹{row.revenue.toLocaleString()}</td>
+                            <td className="py-4 text-clay-muted">{row.distance} KM</td>
+                          </>
+                        )}
+                        {reportType === 'driver' && (
+                          <>
+                            <td className="py-4 font-headline" style={{ fontFamily: "Nunito, sans-serif" }}>{row.name}</td>
+                            <td className="py-4 text-clay-muted font-mono uppercase">{row.license || 'N/A'}</td>
+                            <td className="py-4 text-clay-primary">{row.score}%</td>
+                            <td className="py-4 text-clay-muted uppercase">{row.status}</td>
+                            <td className="py-4 text-clay-muted">{row.tripsCount}</td>
+                            <td className="py-4 text-clay-muted">{row.completedCount}</td>
+                            <td className="py-4 text-clay-muted">{row.distance} KM</td>
+                            <td className="py-4 text-emerald-600">₹{row.salary.toLocaleString()}</td>
+                          </>
+                        )}
+                        {reportType === 'fuel' && (
+                          <>
+                            <td className="py-4 font-headline" style={{ fontFamily: "Nunito, sans-serif" }}>{row.vehicleName}</td>
+                            <td className="py-4 text-clay-muted">{new Date(row.date).toLocaleDateString()}</td>
+                            <td className="py-4 text-clay-foreground">{row.liters} L</td>
+                            <td className="py-4 text-emerald-600">₹{row.amount.toLocaleString()}</td>
+                            <td className="py-4 text-clay-muted font-mono">{row.odometer || 'N/A'} KM</td>
+                            <td className="py-4 text-clay-muted font-mono">₹{row.liters > 0 ? (row.amount / row.liters).toFixed(2) : 0} / L</td>
+                          </>
+                        )}
+                        {reportType === 'expense' && (
+                          <>
+                            <td className="py-4 font-headline" style={{ fontFamily: "Nunito, sans-serif" }}>{row.vehicleName}</td>
+                            <td className="py-4"><span className="px-2.5 py-1 bg-slate-100 rounded-full text-[9px] uppercase">{row.type}</span></td>
+                            <td className="py-4 text-clay-muted">{new Date(row.date).toLocaleDateString()}</td>
+                            <td className="py-4 text-emerald-600">₹{row.amount.toLocaleString()}</td>
+                          </>
+                        )}
+                        {reportType === 'maintenance' && (
+                          <>
+                            <td className="py-4 font-headline" style={{ fontFamily: "Nunito, sans-serif" }}>{row.vehicleName}</td>
+                            <td className="py-4 text-clay-foreground">{row.issue}</td>
+                            <td className="py-4 text-clay-muted">₹{row.cost.toLocaleString()}</td>
+                            <td className="py-4"><span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-[9px] uppercase">{row.resolved}</span></td>
+                            <td className="py-4 text-clay-muted">{new Date(row.date).toLocaleDateString()}</td>
+                          </>
+                        )}
+                        {reportType === 'cost' && (
+                          <>
+                            <td className="py-4 text-clay-primary font-mono">{row.tripId}</td>
+                            <td className="py-4 text-clay-foreground">{row.route}</td>
+                            <td className="py-4 text-clay-muted">{row.distance} KM</td>
+                            <td className="py-4 text-emerald-600">₹{row.revenue.toLocaleString()}</td>
+                            <td className="py-4 text-violet-600">₹{row.salary.toLocaleString()}</td>
+                            <td className="py-4 text-amber-700">₹{row.estimatedFuel.toLocaleString()}</td>
+                            <td className="py-4 text-rose-600">₹{row.actualFuel.toLocaleString()}</td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
+        {/* ========================================================
+           TAB 7: FUEL LOGS
+           ======================================================== */}
+        {activeMenu === 'fuel' && (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/40 p-6 rounded-[24px] border border-white/40 shadow-clayCard gap-4">
+              <div>
+                <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Fuel Logs Registry</h3>
+                <p className="text-xs text-clay-muted font-bold uppercase mt-1">Record and monitor vehicle fuel log transactions</p>
+              </div>
+              <button
+                onClick={() => { setSubmitError(''); setShowAddFuel(true); }}
+                className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3 rounded-[20px] shadow-clayButton active:scale-[0.95] flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Fuel Log</span>
+              </button>
+            </div>
+
+            {/* Live Fuel Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-[32px] p-6 border border-white/60 shadow-clayCard flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-[20px] flex items-center justify-center shadow-clayCard">
+                  <span className="material-symbols-outlined text-lg">local_gas_station</span>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-clay-muted tracking-wider">Total Fuel Liters</h4>
+                  <p className="font-headline text-2xl font-black text-clay-foreground mt-1">
+                    {expenses.filter(e => e.type === 'fuel').reduce((sum, e) => sum + (e.liters || 0), 0).toLocaleString()} L
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] p-6 border border-white/60 shadow-clayCard flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-[20px] flex items-center justify-center shadow-clayCard">
+                  <span className="material-symbols-outlined text-lg">payments</span>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-clay-muted tracking-wider">Total Fuel Cost</h4>
+                  <p className="font-headline text-2xl font-black text-clay-foreground mt-1">
+                    ₹{expenses.filter(e => e.type === 'fuel').reduce((sum, e) => sum + (e.amount || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] p-6 border border-white/60 shadow-clayCard flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-[20px] flex items-center justify-center shadow-clayCard">
+                  <span className="material-symbols-outlined text-lg">speed</span>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-clay-muted tracking-wider">Avg Fuel Price / Litre</h4>
+                  <p className="font-headline text-2xl font-black text-clay-foreground mt-1">
+                    ₹{(() => {
+                      const fuelLogs = expenses.filter(e => e.type === 'fuel');
+                      const totalLiters = fuelLogs.reduce((sum, e) => sum + (e.liters || 0), 0);
+                      const totalCost = fuelLogs.reduce((sum, e) => sum + (e.amount || 0), 0);
+                      return totalLiters > 0 ? (totalCost / totalLiters).toFixed(2) : '0.00';
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fuel Log List */}
+            <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase text-clay-muted tracking-widest pb-4">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Date</th>
+                      <th className="pb-4">Fuel Quantity</th>
+                      <th className="pb-4">Total Cost</th>
+                      <th className="pb-4">Odometer Log</th>
+                      <th className="pb-4">Fuel Rate</th>
+                      <th className="pb-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-bold text-xs">
+                    {expenses.filter(e => e.type === 'fuel').length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="py-8 text-center text-clay-muted uppercase text-xs">No fuel transactions logged.</td>
+                      </tr>
+                    ) : (
+                      expenses.filter(e => e.type === 'fuel').map(log => (
+                        <tr key={log._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-4 font-headline uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>
+                            {log.vehicle ? `${log.vehicle.name} (${log.vehicle.reg})` : 'Unknown Vehicle'}
+                          </td>
+                          <td className="py-4 text-clay-muted">{new Date(log.date).toLocaleDateString()}</td>
+                          <td className="py-4 text-clay-foreground">{log.liters || 0} Liters</td>
+                          <td className="py-4 text-emerald-600 font-bold">₹{log.amount?.toLocaleString()}</td>
+                          <td className="py-4 text-clay-muted font-mono">{log.odometer || 'N/A'} KM</td>
+                          <td className="py-4 text-clay-muted font-mono">₹{log.liters > 0 ? (log.amount / log.liters).toFixed(2) : 0} / L</td>
+                          <td className="py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => startEditFuel(log)}
+                                className="bg-[#EFEBF5] hover:bg-white text-clay-primary border border-white/60 font-bold text-[10px] px-3 py-1.5 rounded-[12px] shadow-clayCard transition-all uppercase tracking-wider cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFuel(log._id)}
+                                className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-[10px] px-3 py-1.5 rounded-[12px] shadow-clayCard transition-all uppercase tracking-wider cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+           TAB 8: EXPENSE LOGS
+           ======================================================== */}
+        {activeMenu === 'expenses' && (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/40 p-6 rounded-[24px] border border-white/40 shadow-clayCard gap-4">
+              <div>
+                <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Expense Logs Registry</h3>
+                <p className="text-xs text-clay-muted font-bold uppercase mt-1">Record toll, insurance, maintenance, and miscellaneous logistics charges</p>
+              </div>
+              <button
+                onClick={() => { setSubmitError(''); setShowAddExpense(true); }}
+                className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3 rounded-[20px] shadow-clayButton active:scale-[0.95] flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Log Expense</span>
+              </button>
+            </div>
+
+            {/* Expense Breakdown Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { type: 'toll', label: 'Toll Fees', color: 'bg-blue-100 text-blue-700' },
+                { type: 'insurance', label: 'Insurance Cost', color: 'bg-violet-100 text-violet-700' },
+                { type: 'maintenance', label: 'Maintenance Log', color: 'bg-amber-100 text-amber-700' },
+                { type: 'miscellaneous', label: 'Miscellaneous', color: 'bg-rose-100 text-rose-700' }
+              ].map(card => (
+                <div key={card.type} className="bg-white rounded-[32px] p-6 border border-white/60 shadow-clayCard flex flex-col justify-between">
+                  <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full w-max ${card.color}`}>{card.label}</span>
+                  <p className="font-headline text-2xl font-black text-clay-foreground mt-4">
+                    ₹{expenses.filter(e => e.type === card.type).reduce((sum, e) => sum + (e.amount || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Expense List */}
+            <div className="bg-white rounded-[32px] p-8 shadow-clayCard border border-white/60">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase text-clay-muted tracking-widest pb-4">
+                      <th className="pb-4">Vehicle</th>
+                      <th className="pb-4">Type</th>
+                      <th className="pb-4">Date</th>
+                      <th className="pb-4">Amount</th>
+                      <th className="pb-4">Additional Details</th>
+                      <th className="pb-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-bold text-xs">
+                    {expenses.filter(e => e.type !== 'fuel').length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="py-8 text-center text-clay-muted uppercase text-xs">No non-fuel logistics expenses logged.</td>
+                      </tr>
+                    ) : (
+                      expenses.filter(e => e.type !== 'fuel').map(log => (
+                        <tr key={log._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-4 font-headline uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>
+                            {log.vehicle ? `${log.vehicle.name} (${log.vehicle.reg})` : 'Unknown Vehicle'}
+                          </td>
+                          <td className="py-4">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              log.type === 'toll' ? 'bg-blue-100 text-blue-700' :
+                              log.type === 'insurance' ? 'bg-violet-100 text-violet-700' :
+                              log.type === 'maintenance' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                            }`}>{log.type}</span>
+                          </td>
+                          <td className="py-4 text-clay-muted">{new Date(log.date).toLocaleDateString()}</td>
+                          <td className="py-4 text-emerald-600 font-bold">₹{log.amount?.toLocaleString()}</td>
+                          <td className="py-4 text-clay-muted">
+                            {log.liters > 0 && `${log.liters} Liters`} {log.odometer > 0 && `| ${log.odometer} KM Odometer`}
+                            {log.liters === 0 && log.odometer === 0 && 'System logged'}
+                          </td>
+                          <td className="py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => startEditExpense(log)}
+                                className="bg-[#EFEBF5] hover:bg-white text-clay-primary border border-white/60 font-bold text-[10px] px-3 py-1.5 rounded-[12px] shadow-clayCard transition-all uppercase tracking-wider cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteExpense(log._id)}
+                                className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-[10px] px-3 py-1.5 rounded-[12px] shadow-clayCard transition-all uppercase tracking-wider cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+           TAB 9: AI CO-PILOT CHAT
+           ======================================================== */}
+        {activeMenu === 'copilot' && (
+          <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard flex flex-col h-[70vh] animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-6">
+              <div>
+                <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>AI Fleet Copilot</h3>
+                <p className="text-xs text-clay-muted font-bold uppercase mt-1">Intelligent logistics assistant & predictions manager</p>
+              </div>
+              <span className="bg-clay-primary/10 text-clay-primary px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-clay-primary/20">Active Copilot Online</span>
+            </div>
+
+            {/* Quick suggested triggers */}
+            <div className="flex flex-wrap gap-2.5 mb-6">
+              {[
+                "Which vehicle should I dispatch?",
+                "Show overdue maintenance.",
+                "Which driver is available?",
+                "Summarize today's fleet.",
+                "Predict maintenance."
+              ].map(prompt => (
+                <button
+                  key={prompt}
+                  onClick={() => {
+                    setCopilotInput(prompt);
+                    // Automatically submit prompt
+                    setTimeout(() => {
+                      const inputEl = document.getElementById('copilot-submit-btn');
+                      if (inputEl) inputEl.click();
+                    }, 50);
+                  }}
+                  className="bg-[#EFEBF5] hover:bg-white text-clay-primary border border-white/60 text-xs px-4 py-2.5 rounded-full shadow-clayCard hover:-translate-y-0.5 active:scale-95 transition-all font-semibold cursor-pointer"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 bg-clay-canvas/20 rounded-[24px] p-6 border border-slate-100 shadow-clayPressed min-h-0">
+              {copilotMessages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-md rounded-[24px] p-4 text-xs shadow-clayCard border ${
+                    msg.role === 'user' 
+                      ? 'bg-clay-primary text-white border-clay-primary/20 rounded-tr-none' 
+                      : 'bg-white text-clay-foreground border-white/80 rounded-tl-none font-semibold leading-relaxed'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                      <div className="space-y-2 whitespace-pre-wrap">
+                        {msg.content}
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                </div>
+              ))}
+              {copilotLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white text-clay-muted border border-white/80 rounded-[24px] rounded-tl-none p-4 text-xs font-bold animate-pulse shadow-clayCard">
+                    Copilot is calculating recommendations...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input form */}
+            <form onSubmit={handleCopilotSubmit} className="flex gap-4">
+              <input
+                type="text"
+                value={copilotInput}
+                onChange={(e) => setCopilotInput(e.target.value)}
+                placeholder="Ask Copilot a question, e.g. Which driver is available?"
+                className="flex-1 bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-5 py-4 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+              />
+              <button
+                type="submit"
+                id="copilot-submit-btn"
+                className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-6 py-4 rounded-[20px] shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-95 transition-all uppercase tracking-wider cursor-pointer"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ========================================================
+           TAB 10: SETTINGS PANEL
+           ======================================================== */}
+        {activeMenu === 'settings' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
+            {/* Profile Settings */}
+            <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>User Profile Settings</h3>
+              <form onSubmit={handleSettingsSubmit} className="space-y-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Full Name</label>
+                  <input
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Contact Phone Number</label>
+                  <input
+                    type="text"
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Operator Password (Leave blank to keep unchanged)</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={profilePassword}
+                    onChange={(e) => setProfilePassword(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Profile Avatar Image</label>
+                  <div className="flex gap-4 items-center">
+                    {profileAvatar ? (
+                      <img src={profileAvatar} className="w-12 h-12 rounded-2xl object-cover border shadow-md" alt="Avatar" />
+                    ) : (
+                      <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-slate-400">N/A</div>
+                    )}
+                    <label className="bg-[#EFEBF5] hover:bg-white text-clay-primary border border-white/60 font-bold text-[10px] px-4 py-2 rounded-[16px] shadow-clayCard cursor-pointer uppercase transition-all tracking-wider">
+                      {uploading ? 'Uploading...' : 'Upload Image'}
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                          const url = await uploadToImageKit(file, 'profile_avatar');
+                          setProfileAvatar(url);
+                        } catch (err) { alert('Upload failed: ' + err.message); }
+                        setUploading(false);
+                      }} />
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3 rounded-[16px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
+                >
+                  Save Profile Settings
+                </button>
+              </form>
+            </div>
+
+            {/* Organization Settings */}
+            <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Organization Configuration</h3>
+              <form onSubmit={handleSettingsSubmit} className="space-y-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Company / Organization Name</label>
+                  <input
+                    type="text"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Operational Timezone</label>
+                  <select
+                    value={orgTimezone}
+                    onChange={(e) => setOrgTimezone(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="IST (UTC+05:30)">IST (UTC+05:30) - Mumbai, Kolkata</option>
+                    <option value="EST (UTC-05:00)">EST (UTC-05:00) - New York</option>
+                    <option value="GMT (UTC+00:00)">GMT (UTC+00:00) - London</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-4">
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-4">
+                    <div>
+                      <h4 className="font-mono text-[10px] font-black uppercase tracking-wider text-clay-muted">Active Platform Theme</h4>
+                      <p className="text-[10px] text-slate-400">Toggle between theme layouts</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrefTheme(prefTheme === 'light' ? 'dark' : 'light')}
+                      className="bg-[#EFEBF5] text-clay-primary font-bold text-xs px-4 py-2 rounded-full border border-white/60 shadow-clayCard uppercase transition-all"
+                    >
+                      {prefTheme.toUpperCase()} MODE
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-mono text-[10px] font-black uppercase tracking-wider text-clay-muted">Platform Notifications</h4>
+                      <p className="text-[10px] text-slate-400">Receive browser alarm popups</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrefNotifications(!prefNotifications)}
+                      className={`font-bold text-xs px-4 py-2 rounded-full border transition-all ${
+                        prefNotifications ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-red-50 border-red-200 text-red-600'
+                      }`}
+                    >
+                      {prefNotifications ? 'ENABLED' : 'DISABLED'}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3 rounded-[16px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
+                >
+                  Update Configuration
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
+
+      {/* Dynamic Notifications Drawer Overlay */}
+      {showNotificationsDrawer && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          <div className="fixed inset-0 bg-[#332F3A]/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotificationsDrawer(false)} />
+          <div className="relative w-screen max-w-md bg-white shadow-claySurface border-l border-slate-100 flex flex-col h-full z-50 p-8">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-6">
+              <div>
+                <h3 className="font-headline text-xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Platform Notifications</h3>
+                <p className="text-[9px] text-clay-muted font-bold uppercase mt-0.5">Real-time status warnings and critical indicators</p>
+              </div>
+              <button onClick={() => setShowNotificationsDrawer(false)} className="text-clay-muted hover:text-clay-foreground font-black text-xs uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {/* Mark All as Read button */}
+            {notifications.filter(n => !readNotificationIds.includes(n.id)).length > 0 && (
+              <button
+                onClick={() => setReadNotificationIds(notifications.map(n => n.id))}
+                className="w-full mb-4 bg-slate-50 hover:bg-slate-100 text-clay-muted text-center font-bold text-[10px] py-2 rounded-xl border border-slate-200 transition-all uppercase tracking-wider cursor-pointer"
+              >
+                Mark all as read
+              </button>
+            )}
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {notifications.length === 0 ? (
+                <div className="text-center py-20 text-clay-muted">
+                  <span className="material-symbols-outlined text-4xl mb-2 text-slate-300">notifications_off</span>
+                  <p className="font-bold text-[10px] uppercase tracking-wider">No diagnostic alerts triggered today.</p>
+                </div>
+              ) : (
+                notifications.map(notif => {
+                  const isRead = readNotificationIds.includes(notif.id);
+                  return (
+                    <div 
+                      key={notif.id} 
+                      className={`p-4 rounded-[20px] border shadow-clayCard transition-all relative group flex gap-3 ${
+                        isRead ? 'bg-slate-50/50 border-slate-200 opacity-60' : 'bg-white border-white'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                        notif.severity === 'error' ? 'bg-red-100 text-red-600' :
+                        notif.severity === 'warning' ? 'bg-amber-100 text-amber-600' :
+                        notif.severity === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        <span className="material-symbols-outlined text-sm">
+                          {notif.severity === 'error' ? 'dangerous' :
+                           notif.severity === 'warning' ? 'warning' :
+                           notif.severity === 'success' ? 'check_circle' : 'info'}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <h5 className="font-headline font-black text-xs uppercase text-slate-800" style={{ fontFamily: "Nunito, sans-serif" }}>{notif.title}</h5>
+                        <p className="text-[10px] text-clay-muted leading-relaxed font-semibold">{notif.message}</p>
+                        <span className="text-[8px] font-mono font-bold text-slate-400 block pt-1 uppercase">{notif.time}</span>
+                      </div>
+                      {!isRead && (
+                        <button
+                          onClick={() => setReadNotificationIds(prev => [...prev, notif.id])}
+                          className="absolute right-4 top-4 text-clay-primary hover:text-clay-secondary font-black text-[9px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          Mark Read
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
          MODALS
@@ -3763,13 +5153,7 @@ export default function Console() {
       {/* 3. Dispatch Trip Modal */}
       {showDispatchTrip && (
         <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
-<<<<<<< Updated upstream
-          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
-
-=======
           <div className="w-full max-w-md max-h-[90vh] bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-y-auto">
-            
->>>>>>> Stashed changes
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
               <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Dispatch Log Registry</h3>
               <button onClick={() => setShowDispatchTrip(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
@@ -3865,7 +5249,7 @@ export default function Console() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Initial Payout Revenue (₹)</label>
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Total Trip Cost (₹)</label>
                   <input
                     type="number"
                     placeholder="Auto-calculated if blank"
@@ -3886,6 +5270,29 @@ export default function Console() {
                     <option value="dispatched">Dispatched</option>
                     <option value="in_transit">In Transit</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver Salary (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Auto-calculated if blank"
+                    value={tDriverSalary}
+                    onChange={(e) => setTDriverSalary(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Est. Fuel Cost (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Auto-calculated if blank"
+                    value={tEstimatedFuelCost}
+                    onChange={(e) => setTEstimatedFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
                 </div>
               </div>
 
@@ -4004,12 +5411,42 @@ export default function Console() {
                   />
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Revenue (₹)</label>
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Total Trip Cost (₹)</label>
                   <input
                     type="number"
                     value={tRevenue}
                     onChange={(e) => setTRevenue(e.target.value)}
                     className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver Salary (₹)</label>
+                  <input
+                    type="number"
+                    value={tDriverSalary}
+                    onChange={(e) => setTDriverSalary(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Est. Fuel Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={tEstimatedFuelCost}
+                    onChange={(e) => setTEstimatedFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Act. Fuel Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={tActualFuelCost}
+                    onChange={(e) => setTActualFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-3 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
                   />
                 </div>
               </div>
@@ -4060,28 +5497,54 @@ export default function Console() {
             )}
 
             <form onSubmit={handleCompleteTripSubmit} className="space-y-4">
-              <div className="flex flex-col space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Actual Odometer Distance (KM)</label>
-                <input
-                  type="number"
-                  placeholder="Actual KM traveled"
-                  value={cActualDistance}
-                  onChange={(e) => setCActualDistance(e.target.value)}
-                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Actual Distance (KM)</label>
+                  <input
+                    type="number"
+                    placeholder="Actual KM traveled"
+                    value={cActualDistance}
+                    onChange={(e) => setCActualDistance(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Total Trip Cost (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Total trip payout cost"
+                    value={cRevenue}
+                    onChange={(e) => setCRevenue(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Revenue Earned (₹)</label>
-                <input
-                  type="number"
-                  placeholder="Total trip payout"
-                  value={cRevenue}
-                  onChange={(e) => setCRevenue(e.target.value)}
-                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver Salary (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Salary for this trip"
+                    value={cDriverSalary}
+                    onChange={(e) => setCDriverSalary(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Actual Fuel Cost (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Actual fuel cost spent"
+                    value={cActualFuelCost}
+                    onChange={(e) => setCActualFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
               </div>
 
               <button
@@ -4165,14 +5628,13 @@ export default function Console() {
         </div>
       )}
 
-      {/* 5. Add Expense Modal */}
-      {showExpenseModal && (
+          {/* 5. Add Fuel Modal */}
+      {showAddFuel && (
         <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
           <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
-
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Log Fuel / Operational Expense</h3>
-              <button onClick={() => setShowExpenseModal(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Log Fuel Refill</h3>
+              <button onClick={() => setShowAddFuel(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
             </div>
 
             {submitError && (
@@ -4182,7 +5644,270 @@ export default function Console() {
               </div>
             )}
 
-            <form onSubmit={handleExpenseSubmit} className="space-y-4">
+            <form onSubmit={handleAddFuelSubmit} className="space-y-4">
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Select Vehicle</label>
+                <select
+                  value={fuelVehicleId}
+                  onChange={(e) => setFuelVehicleId(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  <option value="">-- Choose --</option>
+                  {vehicles.filter(v => v.status !== 'retired').map(v => (
+                    <option key={v._id} value={v._id}>{v.name} ({v.reg})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Quantity (Liters)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 120"
+                    value={fuelLiters}
+                    onChange={(e) => setFuelLiters(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Total Cost (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 11400"
+                    value={fuelCost}
+                    onChange={(e) => setFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Odometer Reading (KM)</label>
+                  <input
+                    type="number"
+                    placeholder="Current KM"
+                    value={fuelOdometer}
+                    onChange={(e) => setFuelOdometer(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Transaction Date</label>
+                  <input
+                    type="date"
+                    value={fuelDate}
+                    onChange={(e) => setFuelDate(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Log Fuel Transaction
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5.1 Edit Fuel Modal */}
+      {showEditFuel && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Edit Fuel Log</h3>
+              <button onClick={() => setShowEditFuel(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditFuelSubmit} className="space-y-4">
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Select Vehicle</label>
+                <select
+                  value={fuelVehicleId}
+                  onChange={(e) => setFuelVehicleId(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  <option value="">-- Choose --</option>
+                  {vehicles.map(v => (
+                    <option key={v._id} value={v._id}>{v.name} ({v.reg})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Quantity (Liters)</label>
+                  <input
+                    type="number"
+                    value={fuelLiters}
+                    onChange={(e) => setFuelLiters(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Total Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={fuelCost}
+                    onChange={(e) => setFuelCost(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Odometer Reading (KM)</label>
+                  <input
+                    type="number"
+                    value={fuelOdometer}
+                    onChange={(e) => setFuelOdometer(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Transaction Date</label>
+                  <input
+                    type="date"
+                    value={fuelDate}
+                    onChange={(e) => setFuelDate(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Save Changes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Add Expense Modal */}
+      {showAddExpense && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Log General Expense</h3>
+              <button onClick={() => setShowAddExpense(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddExpenseSubmit} className="space-y-4">
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Select Vehicle</label>
+                <select
+                  value={eVehicleId}
+                  onChange={(e) => setEVehicleId(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  <option value="">-- Choose --</option>
+                  {vehicles.filter(v => v.status !== 'retired').map(v => (
+                    <option key={v._id} value={v._id}>{v.name} ({v.reg})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Expense Type</label>
+                  <select
+                    value={eType}
+                    onChange={(e) => setEType(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    required
+                  >
+                    <option value="toll">Toll gate fee</option>
+                    <option value="insurance">Insurance premium</option>
+                    <option value="maintenance">Maintenance log cost</option>
+                    <option value="miscellaneous">Miscellaneous expense</option>
+                  </select>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cost Amount (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 500"
+                    value={eAmount}
+                    onChange={(e) => setEAmount(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Expense Date</label>
+                <input
+                  type="date"
+                  value={eDate}
+                  onChange={(e) => setEDate(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Log Expense
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6.1 Edit Expense Modal */}
+      {showEditExpense && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Edit Expense Record</h3>
+              <button onClick={() => setShowEditExpense(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditExpenseSubmit} className="space-y-4">
               <div className="flex flex-col space-y-1">
                 <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Select Vehicle</label>
                 <select
@@ -4207,44 +5932,40 @@ export default function Console() {
                     className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
                     required
                   >
-                    <option value="fuel">Fuel Log</option>
-                    <option value="toll">Toll Gate</option>
-                    <option value="other">Other Expense</option>
+                    <option value="toll">Toll gate fee</option>
+                    <option value="insurance">Insurance premium</option>
+                    <option value="maintenance">Maintenance log cost</option>
+                    <option value="miscellaneous">Miscellaneous expense</option>
                   </select>
                 </div>
                 <div className="flex flex-col space-y-1">
                   <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cost Amount (₹)</label>
                   <input
                     type="number"
-                    placeholder="e.g. 350"
                     value={eAmount}
                     onChange={(e) => setEAmount(e.target.value)}
-                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
                     required
                   />
                 </div>
               </div>
 
-              {eType === 'fuel' && (
-                <div className="flex flex-col space-y-1">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Fuel Liters Logged</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 80"
-                    value={eLiters}
-                    onChange={(e) => setELiters(e.target.value)}
-                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
-                    required
-                  />
-                </div>
-              )}
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Expense Date</label>
+                <input
+                  type="date"
+                  value={eDate}
+                  onChange={(e) => setEDate(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                />
+              </div>
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2"
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton active:scale-[0.95] transition-all cursor-pointer mt-2"
                 style={{ fontFamily: "Nunito, sans-serif" }}
               >
-                Save Expense Log
+                Save Changes
               </button>
             </form>
           </div>

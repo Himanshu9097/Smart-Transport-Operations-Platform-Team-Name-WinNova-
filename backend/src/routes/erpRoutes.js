@@ -368,7 +368,7 @@ router.get('/trips', protect, async (req, res) => {
 // @route   POST /api/trips
 router.post('/trips', protect, async (req, res) => {
   try {
-    const { source, destination, vehicleId, driverId, weight, distance, status, revenue } = req.body;
+    const { source, destination, vehicleId, driverId, weight, distance, status, revenue, driverSalary, estimatedFuelCost, actualFuelCost } = req.body;
 
     // Fetch associated entities
     const vehicle = await Vehicle.findById(vehicleId);
@@ -420,6 +420,10 @@ router.post('/trips', protect, async (req, res) => {
 
     const tripId = `TR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const calculatedSalary = driverSalary !== undefined ? Number(driverSalary) : Math.floor(Number(distance) * 5);
+    const vehicleMileage = vehicle.mileage || 10;
+    const calculatedEstFuelCost = estimatedFuelCost !== undefined ? Number(estimatedFuelCost) : Math.floor((Number(distance) / vehicleMileage) * 95);
+
     const trip = await Trip.create({
       id: tripId,
       source,
@@ -429,7 +433,10 @@ router.post('/trips', protect, async (req, res) => {
       weight,
       distance,
       status: status || 'draft',
-      revenue: revenue || 0
+      revenue: revenue || 0,
+      driverSalary: calculatedSalary,
+      estimatedFuelCost: calculatedEstFuelCost,
+      actualFuelCost: actualFuelCost ? Number(actualFuelCost) : 0
     });
 
     // 5. Dispatching or In Transit automatically changes vehicle & driver to 'on_trip'
@@ -453,7 +460,7 @@ router.post('/trips', protect, async (req, res) => {
 // @route   PUT /api/trips/:id/status
 router.put('/trips/:id/status', protect, async (req, res) => {
   try {
-    const { status, revenue } = req.body;
+    const { status, revenue, actualDistance, driverSalary, actualFuelCost } = req.body;
     const trip = await Trip.findById(req.params.id);
     
     if (!trip) {
@@ -463,13 +470,22 @@ router.put('/trips/:id/status', protect, async (req, res) => {
     const oldStatus = trip.status;
     const newStatus = status;
 
-    if (oldStatus === newStatus) {
+    if (oldStatus === newStatus && revenue === undefined && actualDistance === undefined && driverSalary === undefined && actualFuelCost === undefined) {
       return res.json({ success: true, data: trip });
     }
 
     trip.status = newStatus;
     if (revenue !== undefined) {
-      trip.revenue = revenue;
+      trip.revenue = Number(revenue);
+    }
+    if (actualDistance !== undefined) {
+      trip.actualDistance = Number(actualDistance);
+    }
+    if (driverSalary !== undefined) {
+      trip.driverSalary = Number(driverSalary);
+    }
+    if (actualFuelCost !== undefined) {
+      trip.actualFuelCost = Number(actualFuelCost);
     }
     await trip.save();
 
@@ -512,7 +528,7 @@ router.put('/trips/:id/status', protect, async (req, res) => {
 // @desc    Update general trip details
 router.put('/trips/:id', protect, async (req, res) => {
   try {
-    const { source, destination, vehicleId, driverId, weight, distance, actualDistance, status, revenue } = req.body;
+    const { source, destination, vehicleId, driverId, weight, distance, actualDistance, status, revenue, driverSalary, estimatedFuelCost, actualFuelCost } = req.body;
     const trip = await Trip.findById(req.params.id);
 
     if (!trip) {
@@ -529,6 +545,9 @@ router.put('/trips/:id', protect, async (req, res) => {
     if (distance !== undefined) trip.distance = Number(distance);
     if (actualDistance !== undefined) trip.actualDistance = Number(actualDistance);
     if (revenue !== undefined) trip.revenue = Number(revenue);
+    if (driverSalary !== undefined) trip.driverSalary = Number(driverSalary);
+    if (estimatedFuelCost !== undefined) trip.estimatedFuelCost = Number(estimatedFuelCost);
+    if (actualFuelCost !== undefined) trip.actualFuelCost = Number(actualFuelCost);
 
     // Handle vehicle change
     if (vehicleId && vehicleId !== oldVehicleId) {
@@ -631,6 +650,42 @@ router.put('/trips/:id', protect, async (req, res) => {
   }
 });
 
+// @route   DELETE /api/trips/:id
+// @desc    Delete a trip and release its vehicle & driver if active
+router.delete('/trips/:id', protect, async (req, res) => {
+  try {
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    // Release vehicle and driver if the deleted trip was dispatched or in transit
+    if (trip.status === 'dispatched' || trip.status === 'in_transit') {
+      const vehicle = await Vehicle.findById(trip.vehicle);
+      if (vehicle) {
+        vehicle.status = 'available';
+        await vehicle.save();
+      }
+
+      const driver = await Driver.findById(trip.driver);
+      if (driver) {
+        driver.status = 'available';
+        await driver.save();
+      }
+    }
+
+    await Trip.findByIdAndDelete(req.params.id);
+
+    if (trip.driver) {
+      await recalculateDriverScore(trip.driver);
+    }
+
+    res.json({ success: true, message: 'Trip deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ==========================================
 // 4. MAINTENANCE LOGS
 // ==========================================
@@ -721,18 +776,60 @@ router.get('/expenses', protect, async (req, res) => {
 // @route   POST /api/expenses
 router.post('/expenses', protect, async (req, res) => {
   try {
-    const { vehicleId, type, amount, liters, date } = req.body;
+    const { vehicleId, type, amount, liters, odometer, date } = req.body;
 
     const expense = await Expense.create({
       vehicle: vehicleId,
       type,
       amount,
       liters: liters || 0,
+      odometer: odometer || 0,
       date: date || Date.now()
     });
 
     const populatedExpense = await Expense.findById(expense._id).populate('vehicle');
     res.status(201).json({ success: true, data: populatedExpense });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   PUT /api/expenses/:id
+router.put('/expenses/:id', protect, async (req, res) => {
+  try {
+    const { vehicleId, type, amount, liters, odometer, date } = req.body;
+    const expense = await Expense.findById(req.params.id);
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense log not found' });
+    }
+
+    if (vehicleId) expense.vehicle = vehicleId;
+    if (type) expense.type = type;
+    if (amount !== undefined) expense.amount = Number(amount);
+    if (liters !== undefined) expense.liters = Number(liters);
+    if (odometer !== undefined) expense.odometer = Number(odometer);
+    if (date) expense.date = date;
+
+    await expense.save();
+    const populatedExpense = await Expense.findById(expense._id).populate('vehicle');
+    res.json({ success: true, data: populatedExpense });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   DELETE /api/expenses/:id
+router.delete('/expenses/:id', protect, async (req, res) => {
+  try {
+    const expense = await Expense.findById(req.params.id);
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense log not found' });
+    }
+
+    await Expense.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Expense log removed successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

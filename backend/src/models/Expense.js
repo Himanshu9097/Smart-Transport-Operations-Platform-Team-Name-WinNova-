@@ -8,7 +8,7 @@ const ExpenseSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['fuel', 'toll', 'maintenance', 'other'],
+    enum: ['fuel', 'toll', 'insurance', 'maintenance', 'miscellaneous'],
     required: [true, 'Please specify expense type']
   },
   amount: {
@@ -16,6 +16,10 @@ const ExpenseSchema = new mongoose.Schema({
     required: [true, 'Please specify expense amount']
   },
   liters: {
+    type: Number,
+    default: 0 // Optional, applicable for fuel type logs
+  },
+  odometer: {
     type: Number,
     default: 0 // Optional, applicable for fuel type logs
   },
