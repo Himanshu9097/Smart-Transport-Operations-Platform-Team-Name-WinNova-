@@ -590,25 +590,46 @@ export default function LandingPage() {
                 TransitOps integrates with most major OEM telematics systems and third-party ELDs. We also provide our own plug-and-play OBD-II devices for older fleets.
               </p>
             </details>
-          </div>
-        </div>
-      </section>
 
-      {/* 13. Final CTA (animated with reveal) */}
-      <section className="py-32 relative overflow-hidden bg-background reveal">
-        <div className="absolute inset-0 bg-primary/5 dot-grid opacity-40"></div>
-        <div className="max-w-[1280px] mx-auto px-10 relative text-center reveal">
-          <h2 className="font-headline text-4xl md:text-5xl font-black mb-8 tracking-tight uppercase">Ready to Modernize Your Fleet?</h2>
-          <p className="text-body text-base md:text-lg text-on-surface-variant mb-12 max-w-2xl mx-auto font-bold leading-relaxed">
-            Join hundreds of industry-leading companies optimizing their transport operations with TransitOps. Start your 14-day free trial today.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6">
-            <Link to="/login" className="candy-button bg-primary text-white px-12 py-5 rounded-lg font-headline text-lg font-bold hard-shadow">
-              Launch Dashboard
-            </Link>
-            <button className="bg-white border-2 border-border text-on-surface px-12 py-5 rounded-lg font-headline text-lg font-bold hover:bg-slate-50 transition-all shadow-[4px_4px_0px_0px_#1E293B]">
-              Request Demo
-            </button>
+            <details className="group sticker-card bg-white rounded-lg p-6 transition-all duration-200 hard-shadow reveal">
+              <summary className="flex items-center justify-between cursor-pointer list-none">
+                <span className="font-headline text-base font-black uppercase">Can we track fuel card transactions?</span>
+                <span className="material-symbols-outlined transition-transform group-open:rotate-180 font-black">expand_more</span>
+              </summary>
+              <p className="mt-4 text-on-surface-variant font-medium text-xs leading-relaxed">
+                Yes! TransitOps supports automated importing of commercial fuel card transaction data (such as IOCL, HPCL, BPCL, or custom corporate cards) to dynamically audit fuel purchases against GPS mileage records and prevent theft.
+              </p>
+            </details>
+
+            <details className="group sticker-card bg-white rounded-lg p-6 transition-all duration-200 hard-shadow reveal">
+              <summary className="flex items-center justify-between cursor-pointer list-none">
+                <span className="font-headline text-base font-black uppercase">Is there offline support for mobile drivers?</span>
+                <span className="material-symbols-outlined transition-transform group-open:rotate-180 font-black">expand_more</span>
+              </summary>
+              <p className="mt-4 text-on-surface-variant font-medium text-xs leading-relaxed">
+                Yes. The TransitOps driver application caches GPS telemetry, trip logs, and compliance document uploads locally on the device when cell reception is lost, automatically syncing them with the console once connectivity is restored.
+              </p>
+            </details>
+
+            <details className="group sticker-card bg-white rounded-lg p-6 transition-all duration-200 hard-shadow reveal">
+              <summary className="flex items-center justify-between cursor-pointer list-none">
+                <span className="font-headline text-base font-black uppercase">What is the integration process with existing ERPs?</span>
+                <span className="material-symbols-outlined transition-transform group-open:rotate-180 font-black">expand_more</span>
+              </summary>
+              <p className="mt-4 text-on-surface-variant font-medium text-xs leading-relaxed">
+                We provide developer-friendly REST APIs and webhooks to synchronize dispatcher schedules, payroll records, maintenance expenses, and vehicle statuses directly with existing systems like SAP, Oracle, or custom databases.
+              </p>
+            </details>
+
+            <details className="group sticker-card bg-white rounded-lg p-6 transition-all duration-200 hard-shadow reveal">
+              <summary className="flex items-center justify-between cursor-pointer list-none">
+                <span className="font-headline text-base font-black uppercase">How does the AI Copilot assist dispatchers?</span>
+                <span className="material-symbols-outlined transition-transform group-open:rotate-180 font-black">expand_more</span>
+              </summary>
+              <p className="mt-4 text-on-surface-variant font-medium text-xs leading-relaxed">
+                The AI Copilot continuously monitors telemetry data, driver logs, driver safety scores, and maintenance status to recommend optimal vehicle-driver pairings and flag potential risk issues before dispatching trips.
+              </p>
+            </details>
           </div>
         </div>
       </section>
@@ -640,9 +661,15 @@ export default function LandingPage() {
           </div>
           <div>
             <h5 className="font-headline text-xs mb-6 uppercase tracking-widest text-warning font-black">Newsletter</h5>
-            <div className="flex flex-col gap-2">
-              <input className="bg-slate-50 border-2 border-border rounded p-2 text-xs font-bold focus:outline-none focus:border-primary" placeholder="Email address" type="email" />
-              <button className="bg-primary text-white py-2 rounded text-xs font-black shadow-[2px_2px_0px_0px_#1E293B]">Subscribe</button>
+            <div className="flex border-2 border-border rounded bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <input 
+                className="bg-transparent px-3 py-2 text-xs font-bold focus:outline-none flex-grow min-w-0" 
+                placeholder="Email address" 
+                type="email" 
+              />
+              <button className="bg-primary text-white px-4 py-2 text-xs font-black border-l-2 border-border hover:opacity-90 transition-all">
+                Subscribe
+              </button>
             </div>
           </div>
         </div>
