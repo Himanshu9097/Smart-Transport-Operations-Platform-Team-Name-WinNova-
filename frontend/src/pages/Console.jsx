@@ -1206,81 +1206,40 @@ export default function Console() {
     }
   };
 
-  const handleCopilotSubmit = (e) => {
+  const handleCopilotSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!copilotInput.trim()) return;
 
     const userMessage = copilotInput.trim();
+    // Pass chat history (filtered to system roles) for memory
+    const history = copilotMessages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
+
     setCopilotMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setCopilotInput('');
     setCopilotLoading(true);
 
-    setTimeout(() => {
-      let reply = "";
-      const lower = userMessage.toLowerCase();
-
-      if (lower.includes('which vehicle should i dispatch') || lower.includes('recommend vehicle')) {
-        const availableVehicles = vehicles.filter(v => v.status === 'available');
-        if (availableVehicles.length === 0) {
-          reply = "I scanned the fleet registry and currently **no vehicles are available** for dispatch. All vehicles are either retired, on trips, or in the service shop.";
-        } else {
-          const recommended = availableVehicles[0];
-          reply = `I recommend dispatching the **${recommended.name} (${recommended.reg})**. It is currently **available**, has a maximum load capacity of **${recommended.maxLoad} Tons**, and a fuel efficiency mileage of **${recommended.mileage} KM/L**. Other available options include: ${availableVehicles.slice(1).map(v => `${v.name} (${v.reg})`).join(', ') || 'None'}.`;
-        }
-      } 
-      else if (lower.includes('show overdue maintenance') || lower.includes('overdue maintenance') || lower.includes('pending maintenance')) {
-        const activeMaint = maintenance.filter(m => m.vehicle?.status === 'in_shop' || !m.resolved);
-        if (activeMaint.length === 0) {
-          reply = "Great news! There are **no unresolved maintenance logs** or vehicles currently stuck in the service shop.";
-        } else {
-          reply = `Here are the active maintenance tasks requiring attention:\n\n` + 
-            activeMaint.map(m => `- **${m.vehicle?.name || 'Vehicle'} (${m.vehicle?.reg || 'N/A'})**: ${m.issue} (Est: ₹${m.cost?.toLocaleString()})`).join('\n');
-        }
+    try {
+      const res = await fetch('/api/copilot/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: userMessage, history })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCopilotMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      } else {
+        setCopilotMessages(prev => [...prev, { role: 'assistant', content: `⚠️ AI Copilot Error: ${data.message}` }]);
       }
-      else if (lower.includes('which driver is available') || lower.includes('available driver') || lower.includes('recommend driver')) {
-        const availableDrivers = drivers.filter(d => d.status === 'available');
-        if (availableDrivers.length === 0) {
-          reply = "I scanned the driver registry and currently **no drivers are available** (all are currently on active trips or off-duty).";
-        } else {
-          const sorted = [...availableDrivers].sort((a, b) => b.score - a.score);
-          const top = sorted[0];
-          reply = `I recommend assigning **${top.name}** for your next dispatch. They have a pristine **${top.score}% Safety Score** and their driver's license is fully valid. Other available drivers: ${sorted.slice(1).map(d => `${d.name} (${d.score}%)`).join(', ') || 'None'}.`;
-        }
-      }
-      else if (lower.includes('summarize today') || lower.includes('fleet summary') || lower.includes('summarize fleet') || lower.includes('status of the fleet')) {
-        const totalVeh = vehicles.length;
-        const availableVeh = vehicles.filter(v => v.status === 'available').length;
-        const onTripVeh = vehicles.filter(v => v.status === 'on_trip').length;
-        const inShopVeh = vehicles.filter(v => v.status === 'in_shop').length;
-        
-        const totalDrv = drivers.length;
-        const availableDrv = drivers.filter(d => d.status === 'available').length;
-
-        const activeTrips = trips.filter(t => t.status === 'dispatched' || t.status === 'in_transit').length;
-
-        reply = `### Fleet Summary Report\n\n` +
-          `* **Vehicles**: ${totalVeh} total | **${availableVeh} Available** | **${onTripVeh} On Trip** | **${inShopVeh} In Shop**\n` +
-          `* **Driver Crew**: ${totalDrv} registered | **${availableDrv} Available** for dispatch\n` +
-          `* **Active Dispatches**: ${activeTrips} trips currently in progress.\n\n` +
-          `All logistics nodes are currently operating within nominal parameters. Let me know if you want to inspect a specific vehicle or generate a cost breakdown.`;
-      }
-      else if (lower.includes('predict maintenance') || lower.includes('maintenance prediction')) {
-        const highUsageVehicles = vehicles.filter(v => v.status !== 'retired');
-        if (highUsageVehicles.length === 0) {
-          reply = "No active vehicles found in registry to analyze.";
-        } else {
-          reply = `### Predictive Maintenance Insights:\n\n` +
-            `- **${highUsageVehicles[0]?.name || 'Tata Ultra'}**: Odometer reports steady usage. Recommend scheduling oil filter & brake caliper checks within next 15 days to optimize mileage.\n` +
-            `- **Safety Score Warning**: Ensure drivers maintain soft braking metrics to extend brake rotor lifespans on long-haul cargo routes.`;
-        }
-      }
-      else {
-        reply = `I understand your request regarding "${userMessage}". As your copilot, I can see we have **${vehicles.length} vehicles** and **${drivers.length} drivers** active. Let me know if you would like me to recommend a driver, show overdue maintenance, or generate today's fleet summary!`;
-      }
-
-      setCopilotMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      setCopilotMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Server Connection Error: AI engine offline.' }]);
+    } finally {
       setCopilotLoading(false);
-    }, 600);
+    }
   };
 
   const handleSettingsSubmit = (e) => {

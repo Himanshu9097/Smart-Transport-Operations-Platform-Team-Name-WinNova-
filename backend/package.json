@@ -14,7 +14,8 @@
     "express": "^4.19.2",
     "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.4.1"
+    "mongoose": "^8.4.1",
+    "nodemailer": "^9.0.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.2"

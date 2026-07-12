@@ -8,6 +8,8 @@ const Expense = require('../models/Expense');
 const { protect } = require('../middleware/authMiddleware');
 const https = require('https');
 const ImageKit = require('imagekit');
+const { sendTripCreatedEmail, sendTripStatusEmail } = require('../utils/mailer');
+
 
 // @route   GET /api/imagekit/auth
 // Returns authentication parameters for client-side ImageKit uploads
@@ -469,6 +471,9 @@ router.post('/trips', protect, async (req, res) => {
 
     await recalculateDriverScore(driverId);
 
+    // Send trip creation/assignment email (non-blocking)
+    sendTripCreatedEmail(trip, driver, vehicle).catch(err => console.error('Trip assignment email failure:', err.message));
+
     const populatedTrip = await Trip.findById(trip._id).populate('vehicle').populate('driver');
     res.status(201).json({ success: true, data: populatedTrip });
   } catch (err) {
@@ -534,6 +539,11 @@ router.put('/trips/:id/status', protect, async (req, res) => {
 
     if (driver) {
       await recalculateDriverScore(driver._id);
+    }
+
+    // Send trip status update email if transitioned to in_transit or completed (non-blocking)
+    if (newStatus === 'in_transit' || newStatus === 'completed') {
+      sendTripStatusEmail(trip, driver, vehicle, newStatus).catch(err => console.error('Trip status email failure:', err.message));
     }
 
     const populatedTrip = await Trip.findById(trip._id).populate('vehicle').populate('driver');
@@ -660,6 +670,13 @@ router.put('/trips/:id', protect, async (req, res) => {
     }
     if (oldDriverId && oldDriverId !== trip.driver.toString()) {
       await recalculateDriverScore(oldDriverId);
+    }
+
+    // Send trip status update email if transitioned to in_transit or completed (non-blocking)
+    if (status && status !== oldStatus && (status === 'in_transit' || status === 'completed')) {
+      const currentVehicle = await Vehicle.findById(trip.vehicle);
+      const currentDriver = await Driver.findById(trip.driver);
+      sendTripStatusEmail(trip, currentDriver, currentVehicle, status).catch(err => console.error('Trip status email failure:', err.message));
     }
 
     const populated = await Trip.findById(trip._id).populate('vehicle').populate('driver');
@@ -918,8 +935,91 @@ router.get('/reports/analytics', protect, async (req, res) => {
     });
 
     res.json({ success: true, data: reportData });
+// @route   POST /api/copilot/chat
+// @desc    Intelligent logistics recommendations using Cloudflare Worker AI
+router.post('/copilot/chat', protect, async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    // 1. Load active fleet snapshot from database to populate model context
+    const [vehicles, drivers, trips, maintenance] = await Promise.all([
+      Vehicle.find({ status: { $ne: 'retired' } }).select('reg name type status maxLoad mileage odometer'),
+      Driver.find({}).select('name status score expiry'),
+      Trip.find({ status: { $in: ['draft', 'dispatched', 'in_transit'] } }).populate('vehicle').populate('driver').select('id source destination weight status'),
+      Maintenance.find({ resolved: false }).populate('vehicle').select('issue cost resolved')
+    ]);
+
+    // 2. Format a highly descriptive context string
+    const vehiclesCtx = vehicles.map(v => `- ${v.name} (${v.reg}): Type=${v.type}, Status=${v.status}, MaxLoad=${v.maxLoad}T, Mileage=${v.mileage}KM/L, Odometer=${v.odometer}KM`).join('\n');
+    const driversCtx = drivers.map(d => `- ${d.name}: Status=${d.status}, SafetyScore=${d.score}%, LicenseExpiry=${d.expiry ? new Date(d.expiry).toISOString().split('T')[0] : 'N/A'}`).join('\n');
+    const tripsCtx = trips.map(t => `- Trip ${t.id}: ${t.source} to ${t.destination}, Status=${t.status}, Assigned Driver=${t.driver?.name || 'N/A'}, Vehicle=${t.vehicle?.name || 'N/A'}, Load=${t.weight}T`).join('\n');
+    const maintCtx = maintenance.map(m => `- ${m.vehicle?.name || 'Vehicle'}: Issue="${m.issue}", EstCost=₹${m.cost}`).join('\n');
+
+    const systemPrompt = `You are the AI Fleet Copilot for the TransitOps logistics management platform.
+Your job is to provide smart recommendations, predictive insights, and answers using the real-time fleet dataset below.
+
+CURRENT FLEET SNAPSHOT:
+=== VEHICLES ===
+${vehiclesCtx || 'No active vehicles.'}
+
+=== DRIVERS ===
+${driversCtx || 'No drivers found.'}
+
+=== ACTIVE DISPATCHED TRIPS ===
+${tripsCtx || 'No active trips currently.'}
+
+=== PENDING UNRESOLVED MAINTENANCE ===
+${maintCtx || 'No unresolved maintenance issues.'}
+
+INSTRUCTIONS:
+1. Always base recommendations (like vehicle or driver options) on real-time parameters from the snapshot.
+2. If asked "Which vehicle should I dispatch?", recommend a vehicle with Status=available, checking that its MaxLoad matches the weight if a cargo weight was provided.
+3. If asked "Which driver is available?", recommend the available driver (Status=available) with the highest SafetyScore.
+4. Keep answers brief, actionable, and formatted in clean markdown bullets. Do not make up any registration plates, names, or numbers not in the snapshot.
+5. If the request cannot be answered from the snapshot, reply politely with helpful fleet suggestions.`;
+
+    // 3. Format messages payload for Cloudflare Worker AI
+    const messages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Append conversation history if present
+    if (history && Array.isArray(history)) {
+      history.forEach(h => {
+        if (h.role && h.content) {
+          messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
+        }
+      });
+    }
+
+    // Add current user message
+    messages.push({ role: 'user', content: message });
+
+    // 4. Send request to Cloudflare Worker AI endpoint
+    const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3-8b-instruct`;
+    
+    const response = await fetch(cfUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.CF_API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ messages })
+    });
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.errors?.[0]?.message || 'Cloudflare AI execution failed');
+    }
+
+    const reply = data.result?.response || data.result?.reply || 'Could not calculate response.';
+    res.json({ success: true, reply });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Copilot AI API Failure:', err.message);
+    res.status(500).json({ success: false, message: 'Copilot AI engine offline: ' + err.message });
   }
 });
 

@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { sendRegisterEmail } = require('../utils/mailer');
 
 // Helper to generate token
 const generateToken = (id) => {
@@ -30,6 +31,9 @@ const registerUser = async (req, res) => {
     });
 
     if (user) {
+      // Send registration confirmation email (non-blocking)
+      sendRegisterEmail(user.email, user.name).catch(err => console.error('Register email send failure:', err.message));
+
       res.status(201).json({
         success: true,
         _id: user._id,
