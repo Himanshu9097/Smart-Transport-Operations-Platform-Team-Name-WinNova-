@@ -388,8 +388,8 @@ router.post('/trips', protect, async (req, res) => {
       revenue: revenue || 0
     });
 
-    // 5. Dispatching a trip automatically changes vehicle & driver to 'on_trip'
-    if (trip.status === 'dispatched') {
+    // 5. Dispatching or In Transit automatically changes vehicle & driver to 'on_trip'
+    if (trip.status === 'dispatched' || trip.status === 'in_transit') {
       vehicle.status = 'on_trip';
       await vehicle.save();
 
@@ -435,8 +435,8 @@ router.put('/trips/:id/status', protect, async (req, res) => {
 
     // Business Logic state changes:
     
-    // A. Dispatching trip: sets statuses to on_trip
-    if (newStatus === 'dispatched' && oldStatus !== 'dispatched') {
+    // A. Dispatching or In Transit: sets statuses to on_trip
+    if ((newStatus === 'dispatched' || newStatus === 'in_transit') && (oldStatus !== 'dispatched' && oldStatus !== 'in_transit')) {
       if (vehicle) { vehicle.status = 'on_trip'; await vehicle.save(); }
       if (driver) { driver.status = 'on_trip'; await driver.save(); }
     }
@@ -447,8 +447,8 @@ router.put('/trips/:id/status', protect, async (req, res) => {
       if (driver) { driver.status = 'available'; await driver.save(); }
     }
 
-    // C. Cancelling a dispatched trip: restores vehicle and driver to Available
-    if (newStatus === 'cancelled' && oldStatus === 'dispatched') {
+    // C. Cancelling a dispatched or in-transit trip: restores vehicle and driver to Available
+    if (newStatus === 'cancelled' && (oldStatus === 'dispatched' || oldStatus === 'in_transit')) {
       if (vehicle) { vehicle.status = 'available'; await vehicle.save(); }
       if (driver) { driver.status = 'available'; await driver.save(); }
     }
@@ -459,6 +459,129 @@ router.put('/trips/:id/status', protect, async (req, res) => {
 
     const populatedTrip = await Trip.findById(trip._id).populate('vehicle').populate('driver');
     res.json({ success: true, data: populatedTrip });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   PUT /api/trips/:id
+// @desc    Update general trip details
+router.put('/trips/:id', protect, async (req, res) => {
+  try {
+    const { source, destination, vehicleId, driverId, weight, distance, actualDistance, status, revenue } = req.body;
+    const trip = await Trip.findById(req.params.id);
+
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    const oldVehicleId = trip.vehicle.toString();
+    const oldDriverId = trip.driver.toString();
+    const oldStatus = trip.status;
+
+    if (source) trip.source = source;
+    if (destination) trip.destination = destination;
+    if (weight !== undefined) trip.weight = Number(weight);
+    if (distance !== undefined) trip.distance = Number(distance);
+    if (actualDistance !== undefined) trip.actualDistance = Number(actualDistance);
+    if (revenue !== undefined) trip.revenue = Number(revenue);
+
+    // Handle vehicle change
+    if (vehicleId && vehicleId !== oldVehicleId) {
+      const newVehicle = await Vehicle.findById(vehicleId);
+      if (!newVehicle) {
+        return res.status(404).json({ success: false, message: 'New vehicle not found' });
+      }
+      if (newVehicle.status === 'retired' || newVehicle.status === 'in_shop') {
+        return res.status(400).json({ success: false, message: `New vehicle status is '${newVehicle.status}'. It cannot be assigned.` });
+      }
+      if (newVehicle.status === 'on_trip') {
+        return res.status(400).json({ success: false, message: 'New vehicle is currently on another trip.' });
+      }
+
+      // If trip is active, swap vehicle statuses
+      if (trip.status === 'dispatched' || trip.status === 'in_transit') {
+        newVehicle.status = 'on_trip';
+        await newVehicle.save();
+
+        const oldVehicle = await Vehicle.findById(oldVehicleId);
+        if (oldVehicle) {
+          oldVehicle.status = 'available';
+          await oldVehicle.save();
+        }
+      }
+      trip.vehicle = vehicleId;
+    }
+
+    // Handle driver change
+    if (driverId && driverId !== oldDriverId) {
+      const newDriver = await Driver.findById(driverId);
+      if (!newDriver) {
+        return res.status(404).json({ success: false, message: 'New driver not found' });
+      }
+      if (newDriver.status === 'suspended') {
+        return res.status(400).json({ success: false, message: 'New driver status is Suspended.' });
+      }
+      const today = new Date();
+      if (new Date(newDriver.expiry) < today) {
+        return res.status(400).json({ success: false, message: 'New driver license has expired.' });
+      }
+      if (newDriver.status === 'on_trip') {
+        return res.status(400).json({ success: false, message: 'New driver is currently on another trip.' });
+      }
+
+      // If trip is active, swap driver statuses
+      if (trip.status === 'dispatched' || trip.status === 'in_transit') {
+        newDriver.status = 'on_trip';
+        await newDriver.save();
+
+        const oldDriver = await Driver.findById(oldDriverId);
+        if (oldDriver) {
+          oldDriver.status = 'available';
+          await oldDriver.save();
+        }
+      }
+      trip.driver = driverId;
+    }
+
+    // Handle status change
+    if (status && status !== oldStatus) {
+      trip.status = status;
+
+      const currentVehicle = await Vehicle.findById(trip.vehicle);
+      const currentDriver = await Driver.findById(trip.driver);
+
+      // Transition to active
+      if ((status === 'dispatched' || status === 'in_transit') && (oldStatus !== 'dispatched' && oldStatus !== 'in_transit')) {
+        if (currentVehicle) { currentVehicle.status = 'on_trip'; await currentVehicle.save(); }
+        if (currentDriver) { currentDriver.status = 'on_trip'; await currentDriver.save(); }
+      }
+
+      // Completion
+      if (status === 'completed') {
+        if (currentVehicle) { currentVehicle.status = 'available'; await currentVehicle.save(); }
+        if (currentDriver) { currentDriver.status = 'available'; await currentDriver.save(); }
+      }
+
+      // Cancellation
+      if (status === 'cancelled' && (oldStatus === 'dispatched' || oldStatus === 'in_transit')) {
+        if (currentVehicle) { currentVehicle.status = 'available'; await currentVehicle.save(); }
+        if (currentDriver) { currentDriver.status = 'available'; await currentDriver.save(); }
+      }
+    }
+
+    await trip.save();
+
+    // Recalculate scores
+    if (trip.driver) {
+      await recalculateDriverScore(trip.driver);
+    }
+    if (oldDriverId && oldDriverId !== trip.driver.toString()) {
+      await recalculateDriverScore(oldDriverId);
+    }
+
+    const populated = await Trip.findById(trip._id).populate('vehicle').populate('driver');
+    res.json({ success: true, data: populated });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

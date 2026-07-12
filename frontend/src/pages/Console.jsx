@@ -177,6 +177,17 @@ export default function Console() {
   const [tDriverId, setTDriverId] = useState('');
   const [tWeight, setTWeight] = useState('');
   const [tDistance, setTDistance] = useState('');
+  const [tActualDistance, setTActualDistance] = useState('');
+  const [tStatus, setTStatus] = useState('draft');
+  const [tRevenue, setTRevenue] = useState('');
+  const [showEditTrip, setShowEditTrip] = useState(false);
+  const [editingTripId, setEditingTripId] = useState('');
+  
+  // Trip complete modal inputs
+  const [completeTripId, setCompleteTripId] = useState('');
+  const [cActualDistance, setCActualDistance] = useState('');
+  const [cRevenue, setCRevenue] = useState('');
+  const [showCompleteTrip, setShowCompleteTrip] = useState(false);
 
   // Form states - Maintenance
   const [mVehicleId, setMVehicleId] = useState('');
@@ -493,20 +504,138 @@ export default function Console() {
           driverId: tDriverId,
           weight: Number(tWeight),
           distance: Number(tDistance),
-          status: 'dispatched',
-          revenue: Math.floor(Number(tDistance) * 4.5)
+          status: tStatus,
+          revenue: tRevenue ? Number(tRevenue) : Math.floor(Number(tDistance) * 4.5)
         })
       });
       const data = await response.json();
       if (data.success) {
         setShowDispatchTrip(false);
-        setTSource(''); setTDest(''); setTVehicleId(''); setTDriverId(''); setTWeight(''); setTDistance('');
+        setTSource(''); setTDest(''); setTVehicleId(''); setTDriverId(''); setTWeight(''); setTDistance(''); setTStatus('draft'); setTRevenue('');
         fetchData();
       } else {
         setSubmitError(data.message || 'Error dispatching trip');
       }
     } catch (err) {
       setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleEditTripSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+
+    const selectedVeh = vehicles.find(v => v._id === tVehicleId);
+    if (selectedVeh && Number(tWeight) > selectedVeh.maxLoad) {
+      setSubmitError(`Cargo weight (${tWeight} Tons) exceeds max load capacity (${selectedVeh.maxLoad} Tons) of vehicle.`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/trips/${editingTripId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          source: tSource,
+          destination: tDest,
+          vehicleId: tVehicleId,
+          driverId: tDriverId,
+          weight: Number(tWeight),
+          distance: Number(tDistance),
+          actualDistance: Number(tActualDistance),
+          status: tStatus,
+          revenue: Number(tRevenue)
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowEditTrip(false);
+        setTSource(''); setTDest(''); setTVehicleId(''); setTDriverId(''); setTWeight(''); setTDistance(''); setTActualDistance(''); setTStatus('draft'); setTRevenue('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error updating trip');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleCompleteTripSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+
+    try {
+      const response = await fetch(`/api/trips/${completeTripId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: 'completed',
+          actualDistance: Number(cActualDistance),
+          revenue: Number(cRevenue)
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowCompleteTrip(false);
+        setCompleteTripId('');
+        setCActualDistance('');
+        setCRevenue('');
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error completing trip');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const startEditTrip = (trip) => {
+    setSubmitError('');
+    setEditingTripId(trip._id);
+    setTSource(trip.source);
+    setTDest(trip.destination);
+    setTVehicleId(trip.vehicle?._id || '');
+    setTDriverId(trip.driver?._id || '');
+    setTWeight(trip.weight);
+    setTDistance(trip.distance);
+    setTActualDistance(trip.actualDistance || 0);
+    setTStatus(trip.status);
+    setTRevenue(trip.revenue || 0);
+    setShowEditTrip(true);
+  };
+
+  const startCompleteTrip = (trip) => {
+    setSubmitError('');
+    setCompleteTripId(trip._id);
+    setCActualDistance(trip.distance);
+    setCRevenue(Math.floor(Number(trip.distance) * 4.5));
+    setShowCompleteTrip(true);
+  };
+
+  const handleProgressTrip = async (tripId, nextStage) => {
+    try {
+      const response = await fetch(`/api/trips/${tripId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStage })
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Error updating status');
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -569,25 +698,7 @@ export default function Console() {
     }
   };
 
-  const handleProgressTrip = async (tripId, currentStage) => {
-    const nextStage = currentStage === 'dispatched' ? 'completed' : 'cancelled';
-    try {
-      const response = await fetch(`/api/trips/${tripId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: nextStage })
-      });
-      const data = await response.json();
-      if (data.success) {
-        fetchData();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   const handleCloseMaintenance = async (logId) => {
     try {
@@ -1865,22 +1976,33 @@ export default function Console() {
                       <div className="flex gap-2 items-center">
                         <span className="font-mono text-xs font-black text-clay-primary uppercase tracking-widest">{trip.id}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-clay-muted"></span>
-                        <span className="font-mono text-[9px] font-bold text-clay-muted uppercase truncate tracking-wider">{trip.driver?.name}</span>
+                        <span className="font-mono text-[9px] font-bold text-clay-muted uppercase truncate tracking-wider">{trip.driver?.name || 'No Driver'}</span>
                       </div>
                       <h4 className="font-headline font-black text-base text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>
                         {trip.source} ➜ {trip.destination}
                       </h4>
-                      <p className="text-[10px] text-clay-muted font-bold uppercase tracking-wider">VEHICLE: {trip.vehicle?.name} ({trip.vehicle?.reg})</p>
-                      <p className="text-[10px] text-clay-muted font-bold uppercase tracking-wider">WEIGHT: {trip.weight} Tons | DISTANCE: {trip.distance} KM</p>
+                      <p className="text-[10px] text-clay-muted font-bold uppercase tracking-wider">VEHICLE: {trip.vehicle ? `${trip.vehicle.name} (${trip.vehicle.reg})` : 'No Vehicle'}</p>
+                      <p className="text-[10px] text-clay-muted font-bold uppercase tracking-wider">
+                        WEIGHT: {trip.weight} Tons | PLANNED: {trip.distance} KM
+                      </p>
+                      {(trip.actualDistance > 0 || trip.status === 'completed') && (
+                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">
+                          ACTUAL: {trip.actualDistance || trip.distance} KM
+                        </p>
+                      )}
+                      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
+                        REVENUE: ₹{trip.revenue?.toLocaleString() || 0}
+                      </p>
                     </div>
 
                     <div className="flex-1 max-w-lg flex items-center justify-between gap-2.5 relative">
                       {[
                         { label: 'Draft', val: 'draft' },
                         { label: 'Dispatched', val: 'dispatched' },
+                        { label: 'In Transit', val: 'in_transit' },
                         { label: 'Completed', val: 'completed' }
                       ].map((step, idx) => {
-                        const stages = ['draft', 'dispatched', 'completed', 'cancelled'];
+                        const stages = ['draft', 'dispatched', 'in_transit', 'completed', 'cancelled'];
                         const activeIndex = stages.indexOf(trip.status);
                         const selfIndex = stages.indexOf(step.val);
                         const isDone = selfIndex <= activeIndex;
@@ -1902,32 +2024,80 @@ export default function Console() {
                       })}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {trip.status === 'dispatched' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {trip.status === 'draft' && (
                         <>
                           <button
                             onClick={() => handleProgressTrip(trip._id, 'dispatched')}
-                            className="bg-white hover:bg-slate-50 border border-white/60 text-clay-primary font-bold text-xs px-4 py-2.5 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                            className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                            style={{ fontFamily: "Nunito, sans-serif" }}
+                          >
+                            Dispatch
+                          </button>
+                          <button
+                            onClick={() => handleProgressTrip(trip._id, 'in_transit')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                            style={{ fontFamily: "Nunito, sans-serif" }}
+                          >
+                            Start Transit
+                          </button>
+                        </>
+                      )}
+
+                      {trip.status === 'dispatched' && (
+                        <>
+                          <button
+                            onClick={() => handleProgressTrip(trip._id, 'in_transit')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                            style={{ fontFamily: "Nunito, sans-serif" }}
+                          >
+                            Start Transit
+                          </button>
+                          <button
+                            onClick={() => startCompleteTrip(trip)}
+                            className="bg-white hover:bg-slate-50 border border-white/60 text-clay-primary font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
                             style={{ fontFamily: "Nunito, sans-serif" }}
                           >
                             Complete
                           </button>
-                          <button
-                            onClick={() => handleProgressTrip(trip._id, 'cancelled')}
-                            className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs px-4 py-2.5 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
-                            style={{ fontFamily: "Nunito, sans-serif" }}
-                          >
-                            Cancel
-                          </button>
                         </>
                       )}
+
+                      {trip.status === 'in_transit' && (
+                        <button
+                          onClick={() => startCompleteTrip(trip)}
+                          className="bg-white hover:bg-slate-50 border border-white/60 text-clay-primary font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: "Nunito, sans-serif" }}
+                        >
+                          Complete
+                        </button>
+                      )}
+
+                      {(trip.status === 'draft' || trip.status === 'dispatched' || trip.status === 'in_transit') && (
+                        <button
+                          onClick={() => handleProgressTrip(trip._id, 'cancelled')}
+                          className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: "Nunito, sans-serif" }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => startEditTrip(trip)}
+                        className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-[16px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                        style={{ fontFamily: "Nunito, sans-serif" }}
+                      >
+                        Edit
+                      </button>
+
                       {trip.status === 'completed' && (
-                        <span className="bg-clay-success/15 text-clay-success px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider border border-clay-success/20">
+                        <span className="bg-clay-success/15 text-clay-success px-3.5 py-2 rounded-full text-xs font-black uppercase tracking-wider border border-clay-success/20">
                           Completed
                         </span>
                       )}
                       {trip.status === 'cancelled' && (
-                        <span className="bg-red-100 text-red-600 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider border border-red-200">
+                        <span className="bg-red-100 text-red-600 px-3.5 py-2 rounded-full text-xs font-black uppercase tracking-wider border border-red-200">
                           Cancelled
                         </span>
                       )}
@@ -3141,8 +3311,13 @@ export default function Console() {
       {/* 3. Dispatch Trip Modal */}
       {showDispatchTrip && (
         <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+<<<<<<< Updated upstream
           <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
 
+=======
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-y-auto">
+            
+>>>>>>> Stashed changes
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
               <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Dispatch Log Registry</h3>
               <button onClick={() => setShowDispatchTrip(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
@@ -3236,12 +3411,233 @@ export default function Console() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Initial Payout Revenue (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Auto-calculated if blank"
+                    value={tRevenue}
+                    onChange={(e) => setTRevenue(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Workflow Status</label>
+                  <select
+                    value={tStatus}
+                    onChange={(e) => setTStatus(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    required
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="dispatched">Dispatched</option>
+                    <option value="in_transit">In Transit</option>
+                  </select>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2"
                 style={{ fontFamily: "Nunito, sans-serif" }}
               >
                 Initiate Dispatch
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3.1 Edit Trip Modal */}
+      {showEditTrip && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-y-auto">
+            
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Edit Trip Registry</h3>
+              <button onClick={() => setShowEditTrip(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditTripSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Source</label>
+                  <input
+                    type="text"
+                    value={tSource}
+                    onChange={(e) => setTSource(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Destination</label>
+                  <input
+                    type="text"
+                    value={tDest}
+                    onChange={(e) => setTDest(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Assignee</label>
+                <select
+                  value={tVehicleId}
+                  onChange={(e) => setTVehicleId(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  {vehicles.map(v => (
+                    <option key={v._id} value={v._id}>{v.name} ({v.reg}) - Status: {v.status}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver Assignee</label>
+                <select
+                  value={tDriverId}
+                  onChange={(e) => setTDriverId(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  {drivers.map(d => (
+                    <option key={d._id} value={d._id}>{d.name} - Score: {d.score}% - Status: {d.status}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cargo Load (Tons)</label>
+                  <input
+                    type="number"
+                    value={tWeight}
+                    onChange={(e) => setTWeight(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Planned (KM)</label>
+                  <input
+                    type="number"
+                    value={tDistance}
+                    onChange={(e) => setTDistance(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Actual Distance (KM)</label>
+                  <input
+                    type="number"
+                    value={tActualDistance}
+                    onChange={(e) => setTActualDistance(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Revenue (₹)</label>
+                  <input
+                    type="number"
+                    value={tRevenue}
+                    onChange={(e) => setTRevenue(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Trip Workflow Status</label>
+                <select
+                  value={tStatus}
+                  onChange={(e) => setTStatus(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  required
+                >
+                  <option value="draft">Draft</option>
+                  <option value="dispatched">Dispatched</option>
+                  <option value="in_transit">In Transit</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Update Trip Record
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3.2 Complete Trip Modal */}
+      {showCompleteTrip && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+            
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Complete assigned Trip</h3>
+              <button onClick={() => setShowCompleteTrip(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCompleteTripSubmit} className="space-y-4">
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Actual Odometer Distance (KM)</label>
+                <input
+                  type="number"
+                  placeholder="Actual KM traveled"
+                  value={cActualDistance}
+                  onChange={(e) => setCActualDistance(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Revenue Earned (₹)</label>
+                <input
+                  type="number"
+                  placeholder="Total trip payout"
+                  value={cRevenue}
+                  onChange={(e) => setCRevenue(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none text-xs"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-br from-[#10B981] to-[#059669] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(16,185,129,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                Log Completion & Clear Assets
               </button>
             </form>
           </div>

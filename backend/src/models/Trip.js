@@ -36,9 +36,13 @@ const TripSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Please add planned distance in KM']
   },
+  actualDistance: {
+    type: Number,
+    default: 0
+  },
   status: {
     type: String,
-    enum: ['draft', 'dispatched', 'completed', 'cancelled'],
+    enum: ['draft', 'dispatched', 'in_transit', 'completed', 'cancelled'],
     default: 'draft'
   },
   revenue: {
