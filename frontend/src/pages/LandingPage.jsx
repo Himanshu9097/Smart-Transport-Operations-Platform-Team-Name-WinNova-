@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Server, Database, Send, ChevronDown, CheckCircle2, XCircle, 
   ArrowRight, ShieldAlert, BadgeInfo, Check, HelpCircle
@@ -142,10 +143,10 @@ export default function LandingPage() {
             </p>
             
             <div className="flex flex-wrap gap-4 mb-12">
-              <button className="candy-button bg-primary text-white px-8 py-4 rounded font-mono text-sm font-bold hard-shadow flex items-center gap-2">
+              <Link to="/login" className="candy-button bg-primary text-white px-8 py-4 rounded font-mono text-sm font-bold hard-shadow flex items-center gap-2">
                 Launch Dashboard
                 <span className="material-symbols-outlined font-black">arrow_forward</span>
-              </button>
+              </Link>
               <button className="bg-white border-2 border-border text-on-surface px-8 py-4 rounded font-mono text-sm font-bold flex items-center gap-2 hover:bg-surface-container-high transition-colors">
                 <span className="material-symbols-outlined">play_circle</span>
                 Watch Demo
@@ -602,9 +603,9 @@ export default function LandingPage() {
             Join hundreds of industry-leading companies optimizing their transport operations with TransitOps. Start your 14-day free trial today.
           </p>
           <div className="flex flex-wrap justify-center gap-6">
-            <button className="candy-button bg-primary text-white px-12 py-5 rounded-lg font-headline text-lg font-bold hard-shadow">
+            <Link to="/login" className="candy-button bg-primary text-white px-12 py-5 rounded-lg font-headline text-lg font-bold hard-shadow">
               Launch Dashboard
-            </button>
+            </Link>
             <button className="bg-white border-2 border-border text-on-surface px-12 py-5 rounded-lg font-headline text-lg font-bold hover:bg-slate-50 transition-all shadow-[4px_4px_0px_0px_#1E293B]">
               Request Demo
             </button>
