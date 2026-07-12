@@ -5,6 +5,8 @@ const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
 
+const erpRoutes = require('./routes/erpRoutes');
+
 // Load environment variables
 dotenv.config();
 
@@ -19,6 +21,7 @@ app.use(express.json());
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
+app.use('/api', erpRoutes);
 
 // Basic Route for Health Check
 app.get('/api/health', (req, res) => {

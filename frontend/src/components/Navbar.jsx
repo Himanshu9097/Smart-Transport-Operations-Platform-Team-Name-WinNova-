@@ -2,6 +2,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+import logo from '../assets/favicon.png';
+
 export default function Navbar() {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -11,7 +13,7 @@ export default function Navbar() {
       <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-20 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link className="font-headline text-lg font-bold text-on-background flex items-center gap-2" to="/">
-            <span className="bg-primary text-white w-8 h-8 rounded flex items-center justify-center font-black">T</span>
+            <img src={logo} className="w-8 h-8 object-contain rounded-lg" alt="TransitOps" />
             TransitOps
           </Link>
           <div className="hidden md:flex gap-6">
