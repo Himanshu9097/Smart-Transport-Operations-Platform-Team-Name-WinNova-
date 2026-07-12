@@ -6,6 +6,11 @@ const DriverSchema = new mongoose.Schema({
     required: [true, 'Please add a driver name'],
     trim: true
   },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true
+  },
   license: {
     type: String,
     required: [true, 'Please add a license number'],
@@ -36,6 +41,35 @@ const DriverSchema = new mongoose.Schema({
     type: String,
     enum: ['available', 'on_trip', 'off_duty', 'suspended'],
     default: 'available'
+  },
+  aadhaar: {
+    type: String,
+    trim: true
+  },
+  pan: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  bloodGroup: {
+    type: String,
+    trim: true
+  },
+  address: {
+    type: String,
+    trim: true
+  },
+  avatar: {
+    type: String
+  },
+  aadhaarFile: {
+    type: String
+  },
+  panFile: {
+    type: String
+  },
+  dlFile: {
+    type: String
   },
   createdAt: {
     type: Date,
