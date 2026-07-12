@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import GPSCard from '../components/GPSTracking';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LogOut, Plus, Search, Truck, Users, Calendar,
@@ -1536,10 +1536,10 @@ export default function Console() {
         }`}>
 
         {/* Logo - pinned at top */}
-        <div className="flex items-center gap-3 px-8 pt-8 pb-4 flex-shrink-0">
+        <a href="/#hero" className="flex items-center gap-3 px-8 pt-8 pb-4 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer decoration-none">
           <img src={logo} className="w-10 h-10 object-contain rounded-2xl shadow-clayButton" alt="TransitOps" />
           <span className="font-black text-2xl tracking-tight text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>TransitOps</span>
-        </div>
+        </a>
 
         {/* Scrollable Nav list */}
         <nav className="flex flex-col gap-3 flex-1 overflow-y-auto px-8 py-2" style={{ scrollbarWidth: 'none' }}>

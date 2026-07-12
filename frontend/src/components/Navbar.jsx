@@ -12,10 +12,10 @@ export default function Navbar() {
     <nav className="sticky top-0 z-[100] bg-[#FFFDF5]/80 backdrop-blur-md border-b-2 border-border text-on-background">
       <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-20 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link className="font-headline text-lg font-bold text-on-background flex items-center gap-2" to="/">
+          <a className="font-headline text-lg font-bold text-on-background flex items-center gap-2" href="/#hero">
             <img src={logo} className="w-8 h-8 object-contain rounded-lg" alt="TransitOps" />
             TransitOps
-          </Link>
+          </a>
           <div className="hidden md:flex gap-6">
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#features">Features</a>
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#platform">Platform</a>

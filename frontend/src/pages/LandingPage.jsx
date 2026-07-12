@@ -124,7 +124,7 @@ export default function LandingPage() {
       )}
 
       {/* 2. Hero Section */}
-      <section className="relative pt-20 pb-32 overflow-hidden">
+      <section className="relative pt-20 pb-32 overflow-hidden" id="hero">
         <div className="max-w-[1280px] mx-auto px-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           
           {/* Hero Left Text (animated with reveal) */}
