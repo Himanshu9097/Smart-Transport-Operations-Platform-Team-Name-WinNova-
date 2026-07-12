@@ -16,11 +16,101 @@ export default function Console() {
   
   // State for mock vehicles
   const [vehicles, setVehicles] = useState([
-    { id: 1, reg: 'DL-3C-SG-1024', name: 'Volvo Heavy Hauler', type: 'Trailer', capacity: '20 Tons', odometer: '42,300 KM', status: 'available' },
-    { id: 2, reg: 'MH-12-PQ-4560', name: 'Tata Ultra Delivery', type: 'Truck', capacity: '10 Tons', odometer: '18,500 KM', status: 'on_trip' },
-    { id: 3, reg: 'KA-03-MR-9801', name: 'Mahindra Loadking', type: 'LJV', capacity: '3.5 Tons', odometer: '64,900 KM', status: 'in_shop' },
-    { id: 4, reg: 'HR-26-AN-3312', name: 'BharatBenz 2823C', type: 'Tipper', capacity: '16 Tons', odometer: '29,400 KM', status: 'available' },
-    { id: 5, reg: 'GJ-01-XX-7789', name: 'Eicher Pro 2049', type: 'LJV', capacity: '2.8 Tons', odometer: '12,100 KM', status: 'on_trip' }
+    { 
+      id: 1, 
+      reg: 'DL-3C-SG-1024', 
+      name: 'Volvo Heavy Hauler', 
+      type: 'Trailer', 
+      capacity: '20 Tons', 
+      odometer: '42,300 KM', 
+      status: 'available',
+      seatingCapacity: '2',
+      cargoCapacity: '40 cubic meters',
+      maxGrossWeight: '25,000 kg',
+      fuelTankCapacity: '400 Liters',
+      ownerName: 'TransitOps North',
+      leaseType: 'Owned',
+      purchaseDate: '2024-01-15',
+      purchaseCost: '120000',
+      vendor: 'Volvo Trucks India',
+      warrantyExpiry: '2029-01-15'
+    },
+    { 
+      id: 2, 
+      reg: 'MH-12-PQ-4560', 
+      name: 'Tata Ultra Delivery', 
+      type: 'Truck', 
+      capacity: '10 Tons', 
+      odometer: '18,500 KM', 
+      status: 'on_trip',
+      seatingCapacity: '3',
+      cargoCapacity: '18 cubic meters',
+      maxGrossWeight: '12,000 kg',
+      fuelTankCapacity: '160 Liters',
+      ownerName: 'TransitOps West',
+      leaseType: 'Leased',
+      purchaseDate: '2025-03-22',
+      purchaseCost: '45000',
+      vendor: 'Tata Motors Pune',
+      warrantyExpiry: '2028-03-22'
+    },
+    { 
+      id: 3, 
+      reg: 'KA-03-MR-9801', 
+      name: 'Mahindra Loadking', 
+      type: 'LJV', 
+      capacity: '3.5 Tons', 
+      odometer: '64,900 KM', 
+      status: 'in_shop',
+      seatingCapacity: '2',
+      cargoCapacity: '8 cubic meters',
+      maxGrossWeight: '5,000 kg',
+      fuelTankCapacity: '90 Liters',
+      ownerName: 'TransitOps South',
+      leaseType: 'Rented',
+      purchaseDate: '2025-06-10',
+      purchaseCost: '18000',
+      vendor: 'Mahindra Dealers Bangalore',
+      warrantyExpiry: '2027-06-10'
+    },
+    { 
+      id: 4, 
+      reg: 'HR-26-AN-3312', 
+      name: 'BharatBenz 2823C', 
+      type: 'Tipper', 
+      capacity: '16 Tons', 
+      odometer: '29,400 KM', 
+      status: 'available',
+      seatingCapacity: '2',
+      cargoCapacity: '14 cubic meters',
+      maxGrossWeight: '28,000 kg',
+      fuelTankCapacity: '300 Liters',
+      ownerName: 'TransitOps Central',
+      leaseType: 'Owned',
+      purchaseDate: '2023-11-05',
+      purchaseCost: '95000',
+      vendor: 'BharatBenz Haryana',
+      warrantyExpiry: '2028-11-05'
+    },
+    { 
+      id: 5, 
+      reg: 'GJ-01-XX-7789', 
+      name: 'Eicher Pro 2049', 
+      type: 'LJV', 
+      capacity: '2.8 Tons', 
+      odometer: '12,100 KM', 
+      status: 'on_trip',
+      seatingCapacity: '2',
+      cargoCapacity: '6 cubic meters',
+      maxGrossWeight: '4,500 kg',
+      fuelTankCapacity: '80 Liters',
+      ownerName: 'TransitOps West',
+      leaseType: 'Owned',
+      purchaseDate: '2025-08-01',
+      purchaseCost: '22000',
+      vendor: 'Eicher Dealers Gujarat',
+      warrantyExpiry: '2029-08-01'
+    }
   ]);
   
   // State for adding a new vehicle
@@ -30,6 +120,32 @@ export default function Console() {
   const [newType, setNewType] = useState('Truck');
   const [newCapacity, setNewCapacity] = useState('10 Tons');
   const [newOdometer, setNewOdometer] = useState('0 KM');
+
+  // Enterprise Basic Information fields
+  const [newNickname, setNewNickname] = useState('');
+  const [newCategory, setNewCategory] = useState('Truck');
+  const [newBrand, setNewBrand] = useState('');
+  const [newModel, setNewModel] = useState('');
+  const [newMfgYear, setNewMfgYear] = useState('');
+  const [newColor, setNewColor] = useState('');
+  const [newVin, setNewVin] = useState('');
+  const [newEngineNum, setNewEngineNum] = useState('');
+  const [newRegState, setNewRegState] = useState('');
+  const [newRegDate, setNewRegDate] = useState('');
+
+  // Capacity fields
+  const [newSeatingCapacity, setNewSeatingCapacity] = useState('');
+  const [newCargoCapacity, setNewCargoCapacity] = useState('');
+  const [newMaxGrossWeight, setNewMaxGrossWeight] = useState('');
+  const [newFuelTankCapacity, setNewFuelTankCapacity] = useState('');
+
+  // Ownership fields
+  const [newOwnerName, setNewOwnerName] = useState('');
+  const [newPurchaseDate, setNewPurchaseDate] = useState('');
+  const [newPurchaseCost, setNewPurchaseCost] = useState('');
+  const [newVendor, setNewVendor] = useState('');
+  const [newWarrantyExpiry, setNewWarrantyExpiry] = useState('');
+  const [newLeaseType, setNewLeaseType] = useState('Owned');
 
   const handleAddVehicle = (e) => {
     e.preventDefault();
@@ -42,7 +158,27 @@ export default function Console() {
       type: newType,
       capacity: newCapacity,
       odometer: newOdometer,
-      status: 'available'
+      status: 'available',
+      nickname: newNickname,
+      category: newCategory,
+      brand: newBrand,
+      model: newModel,
+      mfgYear: newMfgYear,
+      color: newColor,
+      vin: newVin,
+      engineNum: newEngineNum,
+      regState: newRegState,
+      regDate: newRegDate,
+      seatingCapacity: newSeatingCapacity,
+      cargoCapacity: newCargoCapacity,
+      maxGrossWeight: newMaxGrossWeight,
+      fuelTankCapacity: newFuelTankCapacity,
+      ownerName: newOwnerName,
+      purchaseDate: newPurchaseDate,
+      purchaseCost: newPurchaseCost,
+      vendor: newVendor,
+      warrantyExpiry: newWarrantyExpiry,
+      leaseType: newLeaseType,
     };
     
     setVehicles(prev => [...prev, newVeh]);
@@ -52,6 +188,26 @@ export default function Console() {
     setNewType('Truck');
     setNewCapacity('10 Tons');
     setNewOdometer('0 KM');
+    setNewNickname('');
+    setNewCategory('Truck');
+    setNewBrand('');
+    setNewModel('');
+    setNewMfgYear('');
+    setNewColor('');
+    setNewVin('');
+    setNewEngineNum('');
+    setNewRegState('');
+    setNewRegDate('');
+    setNewSeatingCapacity('');
+    setNewCargoCapacity('');
+    setNewMaxGrossWeight('');
+    setNewFuelTankCapacity('');
+    setNewOwnerName('');
+    setNewPurchaseDate('');
+    setNewPurchaseCost('');
+    setNewVendor('');
+    setNewWarrantyExpiry('');
+    setNewLeaseType('Owned');
   };
 
   const handleLogout = () => {
@@ -334,6 +490,34 @@ export default function Console() {
                       <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider">Odometer Records</span>
                       <p className="font-bold text-xs text-clay-foreground mt-0.5">{veh.odometer}</p>
                     </div>
+
+                    {/* Capacity details if defined */}
+                    {(veh.seatingCapacity || veh.cargoCapacity || veh.maxGrossWeight || veh.fuelTankCapacity) && (
+                      <div className="col-span-2 border-t border-dashed border-slate-100 pt-3 mt-1 text-left">
+                        <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Capacity Details</span>
+                        <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[10px] text-clay-muted font-bold uppercase tracking-wide">
+                          {veh.seatingCapacity && <div>Seats: <span className="text-clay-foreground font-extrabold">{veh.seatingCapacity}</span></div>}
+                          {veh.cargoCapacity && <div>Cargo: <span className="text-clay-foreground font-extrabold">{veh.cargoCapacity}</span></div>}
+                          {veh.maxGrossWeight && <div>Gross Wt: <span className="text-clay-foreground font-extrabold">{veh.maxGrossWeight}</span></div>}
+                          {veh.fuelTankCapacity && <div>Fuel Tank: <span className="text-clay-foreground font-extrabold">{veh.fuelTankCapacity}</span></div>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ownership & Financials details if defined */}
+                    {(veh.ownerName || veh.leaseType || veh.purchaseDate || veh.purchaseCost || veh.vendor || veh.warrantyExpiry) && (
+                      <div className="col-span-2 border-t border-dashed border-slate-100 pt-3 mt-1 text-left">
+                        <span className="font-mono text-[9px] text-[#8B5CF6] font-black uppercase tracking-wider block mb-1">Ownership & Financials</span>
+                        <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[10px] text-clay-muted font-bold uppercase tracking-wide">
+                          {veh.ownerName && <div className="col-span-2">Owner: <span className="text-clay-foreground font-extrabold">{veh.ownerName}</span></div>}
+                          {veh.leaseType && <div>Lease: <span className="text-clay-foreground font-extrabold">{veh.leaseType}</span></div>}
+                          {veh.purchaseCost && <div>Cost: <span className="text-clay-foreground font-extrabold">${veh.purchaseCost}</span></div>}
+                          {veh.purchaseDate && <div className="col-span-2">Purchased: <span className="text-clay-foreground font-extrabold">{veh.purchaseDate}</span></div>}
+                          {veh.vendor && <div className="col-span-2">Vendor: <span className="text-clay-foreground font-extrabold">{veh.vendor}</span></div>}
+                          {veh.warrantyExpiry && <div className="col-span-2">Warranty Expiry: <span className="text-clay-foreground font-extrabold">{veh.warrantyExpiry}</span></div>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -370,86 +554,359 @@ export default function Console() {
       {/* Add Vehicle Modal Panel (Claymorphic recessed style) */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+          <div className="w-full max-w-2xl bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden flex flex-col max-h-[90vh]">
             
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 flex-shrink-0">
               <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>New Registry</h3>
               <button onClick={() => setShowAddModal(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider">Close</button>
             </div>
 
-            <form onSubmit={handleAddVehicle} className="space-y-5">
-              {/* Reg number */}
-              <div className="flex flex-col space-y-1.5">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Registration Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. DL-3C-SG-1024"
-                  value={newReg}
-                  onChange={(e) => setNewReg(e.target.value)}
-                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
-                  required
-                />
-              </div>
-
-              {/* Name */}
-              <div className="flex flex-col space-y-1.5">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Model/Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Volvo FH16 Heavy"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
-                  required
-                />
-              </div>
-
-              {/* Type & Capacity */}
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleAddVehicle} className="space-y-5 overflow-y-auto pr-2 flex-1 min-h-0">
+              <div className="space-y-5">
+                {/* Reg number */}
                 <div className="flex flex-col space-y-1.5">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Type</label>
-                  <select
-                    value={newType}
-                    onChange={(e) => setNewType(e.target.value)}
-                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
-                  >
-                    <option value="Truck">Truck</option>
-                    <option value="Trailer">Trailer</option>
-                    <option value="LJV">LJV (Light)</option>
-                    <option value="Tipper">Tipper</option>
-                  </select>
-                </div>
-                <div className="flex flex-col space-y-1.5">
-                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Payload Capacity</label>
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Registration Number</label>
                   <input
                     type="text"
-                    placeholder="e.g. 15 Tons"
-                    value={newCapacity}
-                    onChange={(e) => setNewCapacity(e.target.value)}
+                    placeholder="e.g. DL-3C-SG-1024"
+                    value={newReg}
+                    onChange={(e) => setNewReg(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+
+                {/* Name */}
+                <div className="flex flex-col space-y-1.5">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Model/Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Volvo FH16 Heavy"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+
+                {/* Type & Capacity */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Type</label>
+                    <select
+                      value={newType}
+                      onChange={(e) => setNewType(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    >
+                      <option value="Truck">Truck</option>
+                      <option value="Trailer">Trailer</option>
+                      <option value="LJV">LJV (Light)</option>
+                      <option value="Tipper">Tipper</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Payload Capacity</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 15 Tons"
+                      value={newCapacity}
+                      onChange={(e) => setNewCapacity(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Odometer */}
+                <div className="flex flex-col space-y-1.5">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Odometer Reading</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 10,000 KM"
+                    value={newOdometer}
+                    onChange={(e) => setNewOdometer(e.target.value)}
                     className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
                   />
                 </div>
               </div>
 
-              {/* Odometer */}
-              <div className="flex flex-col space-y-1.5">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Odometer Reading</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 10,000 KM"
-                  value={newOdometer}
-                  onChange={(e) => setNewOdometer(e.target.value)}
-                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
-                />
+              {/* Extended Basic Information Section */}
+              <div className="border-t border-slate-100 pt-5 mt-5">
+                <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Basic Information</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Vehicle Nickname */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Nickname</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Blue Thunder"
+                      value={newNickname}
+                      onChange={(e) => setNewNickname(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Vehicle Category */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vehicle Category</label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    >
+                      <option value="Truck">Truck</option>
+                      <option value="Trailer">Trailer</option>
+                      <option value="LJV">LJV (Light)</option>
+                      <option value="Tipper">Tipper</option>
+                      <option value="SUV">SUV</option>
+                      <option value="Sedan">Sedan</option>
+                      <option value="Van">Van</option>
+                    </select>
+                  </div>
+
+                  {/* Brand */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Brand</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Volvo / Tata"
+                      value={newBrand}
+                      onChange={(e) => setNewBrand(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Model</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Ultra 1518 / FH16"
+                      value={newModel}
+                      onChange={(e) => setNewModel(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Manufacturing Year */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Manufacturing Year</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2024"
+                      value={newMfgYear}
+                      onChange={(e) => setNewMfgYear(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Color */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Color</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. White / Navy Blue"
+                      value={newColor}
+                      onChange={(e) => setNewColor(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* VIN / Chassis Number */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">VIN / Chassis Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 17-digit code"
+                      value={newVin}
+                      onChange={(e) => setNewVin(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs font-mono"
+                    />
+                  </div>
+
+                  {/* Engine Number */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Engine Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ENG-8830-4X"
+                      value={newEngineNum}
+                      onChange={(e) => setNewEngineNum(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs font-mono"
+                    />
+                  </div>
+
+                  {/* Registration State */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Registration State</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Delhi / California"
+                      value={newRegState}
+                      onChange={(e) => setNewRegState(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Registration Date */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Registration Date</label>
+                    <input
+                      type="date"
+                      value={newRegDate}
+                      onChange={(e) => setNewRegDate(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-4 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all"
-                style={{ fontFamily: "Nunito, sans-serif" }}
-              >
-                Register Vehicle
-              </button>
+              {/* Capacity Section */}
+              <div className="border-t border-slate-100 pt-5 mt-5">
+                <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Capacity</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Seating Capacity */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Seating Capacity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 2 / 5"
+                      value={newSeatingCapacity}
+                      onChange={(e) => setNewSeatingCapacity(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Cargo Capacity */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Cargo Capacity</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 20 cubic meters"
+                      value={newCargoCapacity}
+                      onChange={(e) => setNewCargoCapacity(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Maximum Gross Weight */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Maximum Gross Weight</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 15,000 kg"
+                      value={newMaxGrossWeight}
+                      onChange={(e) => setNewMaxGrossWeight(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Fuel Tank Capacity */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Fuel Tank Capacity</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 300 Liters"
+                      value={newFuelTankCapacity}
+                      onChange={(e) => setNewFuelTankCapacity(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Ownership Section */}
+              <div className="border-t border-slate-100 pt-5 mt-5">
+                <h4 className="font-headline font-black text-xs uppercase tracking-wider text-clay-primary mb-4" style={{ fontFamily: "Nunito, sans-serif" }}>Ownership</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Owner Name */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Owner Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TransitOps Logistics"
+                      value={newOwnerName}
+                      onChange={(e) => setNewOwnerName(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Lease Type */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Lease Type</label>
+                    <select
+                      value={newLeaseType}
+                      onChange={(e) => setNewLeaseType(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    >
+                      <option value="Owned">Owned</option>
+                      <option value="Leased">Leased</option>
+                      <option value="Rented">Rented</option>
+                    </select>
+                  </div>
+
+                  {/* Purchase Date */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Purchase Date</label>
+                    <input
+                      type="date"
+                      value={newPurchaseDate}
+                      onChange={(e) => setNewPurchaseDate(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Purchase Cost */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Purchase Cost</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 75000"
+                      value={newPurchaseCost}
+                      onChange={(e) => setNewPurchaseCost(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Vendor */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Vendor</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Volvo Commercial Vehicles"
+                      value={newVendor}
+                      onChange={(e) => setNewVendor(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+
+                  {/* Warranty Expiry */}
+                  <div className="flex flex-col space-y-1.5">
+                    <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Warranty Expiry</label>
+                    <input
+                      type="date"
+                      value={newWarrantyExpiry}
+                      onChange={(e) => setNewWarrantyExpiry(e.target.value)}
+                      className="bg-[#EFEBF5] border-0 text-[#1E293B] font-semibold px-4 py-3 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Action */}
+              <div className="pt-4 flex-shrink-0">
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-4 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer"
+                  style={{ fontFamily: "Nunito, sans-serif" }}
+                >
+                  Register Vehicle
+                </button>
+              </div>
             </form>
 
           </div>
