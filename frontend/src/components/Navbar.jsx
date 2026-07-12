@@ -20,7 +20,6 @@ export default function Navbar() {
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#features">Features</a>
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#platform">Platform</a>
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#copilot">AI Copilot</a>
-            <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#solutions">Solutions</a>
             <a className="font-mono text-xs font-bold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-wider" href="/#faq">FAQ</a>
           </div>
         </div>

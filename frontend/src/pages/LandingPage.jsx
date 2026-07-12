@@ -374,7 +374,7 @@ export default function LandingPage() {
           </div>
           
           <div className="p-8 min-h-[500px] flex items-center justify-center relative bg-white dot-grid">
-            <div className="w-full h-[500px] bg-cover bg-center rounded-lg border-2 border-border hard-shadow-primary" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBGLCrdeEPn7dNVSLSWN4cbLULUnIIcSybBzCGekaBvPhf2xlRF2RPTEE_V8TuUlQsv4hw67hoo1GdYhubbn1fZGBEblE2Ev6f5pHfvMeIaHO0FGKgVqEBJlbNGtHLOg4GOeVONOqKe0RKGDAh92TEcy56OcsxsEa9FfCX2q12le6mSRS1PM2p3uVHLyVQH0bJ_T_FDo9e7f_9qBSSRsRHTxhvlQPEjDbLSvdzJv46OaC8c37Psn2CM')" }}></div>
+            <div className="w-full h-[500px] bg-contain bg-center bg-no-repeat rounded-lg border-2 border-border hard-shadow-primary" style={{ backgroundImage: `url('${dashboardTab === 'dashboard' ? '/dashboard_showcase.png' : dashboardTab === 'trips' ? '/trips_showcase.png' : '/analytics_showcase.png'}')` }}></div>
           </div>
         </div>
       </section>
