@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* Landing page Neo-brutalist theme */
   --color-primary: #0070f3;
   --color-primary-container: #0070f3;
   --color-secondary: #8b5cf6;
@@ -16,6 +17,16 @@
   --color-on-surface-variant: #64748b;
   --color-on-surface: #1E293B;
   
+  /* Claymorphism theme tokens */
+  --color-clay-primary: #7C3AED;
+  --color-clay-secondary: #DB2777;
+  --color-clay-tertiary: #0EA5E9;
+  --color-clay-success: #10B981;
+  --color-clay-warning: #F59E0B;
+  --color-clay-canvas: #F4F1FA;
+  --color-clay-foreground: #332F3A;
+  --color-clay-muted: #635F69;
+  
   --font-headline: 'Outfit', sans-serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -24,13 +35,6 @@
 @layer base {
   :root {
     --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  body {
-    font-family: var(--font-body);
-    background-color: #FFFDF5;
-    color: #1E293B;
-    overflow-x: hidden;
   }
 }
 
@@ -131,4 +135,65 @@
 }
 .truck-loader-anim {
   animation: truck-vibrate 0.2s ease-in-out infinite;
+}
+
+/* ========================================================
+   HIGH-FIDELITY CLAYMORPHISM DESIGN SYSTEM STYLES
+   ======================================================== */
+
+.shadow-claySurface {
+  box-shadow: 
+    30px 30px 60px #cdc6d9,
+    -30px -30px 60px #ffffff,
+    inset 10px 10px 20px rgba(139, 92, 246, 0.05),
+    inset -10px -10px 20px rgba(255, 255, 255, 0.8);
+}
+
+.shadow-clayCard {
+  box-shadow: 
+    16px 16px 32px rgba(160, 150, 180, 0.2),
+    -10px -10px 24px rgba(255, 255, 255, 0.9),
+    inset 6px 6px 12px rgba(139, 92, 246, 0.03),
+    inset -6px -6px 12px rgba(255, 255, 255, 1);
+}
+
+.shadow-clayButton {
+  box-shadow: 
+    12px 12px 24px rgba(139, 92, 246, 0.3),
+    -8px -8px 16px rgba(255, 255, 255, 0.4),
+    inset 4px 4px 8px rgba(255, 255, 255, 0.4),
+    inset -4px -4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-clayPressed {
+  box-shadow: 
+    inset 10px 10px 20px #d9d4e3,
+    inset -10px -10px 20px #ffffff;
+}
+
+/* Background blob slow movement */
+@keyframes clay-blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(30px, -50px) scale(1.1) rotate(5deg); }
+  66% { transform: translate(-20px, 20px) scale(0.95) rotate(-5deg); }
+}
+
+.clay-blob-anim-1 {
+  animation: clay-blob-drift 10s ease-in-out infinite;
+}
+
+.clay-blob-anim-2 {
+  animation: clay-blob-drift 12s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.clay-blob-anim-3 {
+  animation: clay-blob-drift 14s ease-in-out infinite;
+  animation-delay: 4s;
+}
+
+.clay-text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }

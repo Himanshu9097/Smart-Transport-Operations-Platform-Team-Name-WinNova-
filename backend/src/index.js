@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 
+const authRoutes = require('./routes/authRoutes');
+
 // Load environment variables
 dotenv.config();
 
@@ -14,6 +16,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Mount Routes
+app.use('/api/auth', authRoutes);
 
 // Basic Route for Health Check
 app.get('/api/health', (req, res) => {
