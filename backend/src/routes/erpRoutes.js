@@ -1004,7 +1004,7 @@ INSTRUCTIONS:
     messages.push({ role: 'user', content: message });
 
     // 4. Send request to Cloudflare Worker AI endpoint
-    const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3-8b-instruct`;
+    const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
     
     const response = await fetch(cfUrl, {
       method: 'POST',
