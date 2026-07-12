@@ -935,6 +935,11 @@ router.get('/reports/analytics', protect, async (req, res) => {
     });
 
     res.json({ success: true, data: reportData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // @route   POST /api/copilot/chat
 // @desc    Intelligent logistics recommendations using Cloudflare Worker AI
 router.post('/copilot/chat', protect, async (req, res) => {
