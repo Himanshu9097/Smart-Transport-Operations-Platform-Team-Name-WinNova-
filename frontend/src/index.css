@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0070f3;
+  --color-primary-container: #0070f3;
+  --color-secondary: #8b5cf6;
+  --color-warning: #F5A623;
+  --color-success: #10b981;
+  --color-error: #EE0000;
+  --color-border: #1E293B;
+  --color-on-background: #1E293B;
+  --color-background: #FFFDF5;
+  --color-surface-container: #f8fafc;
+  --color-surface-container-high: #f1f5f9;
+  --color-surface-container-highest: #e2e8f0;
+  --color-on-surface-variant: #64748b;
+  --color-on-surface: #1E293B;
+  
+  --font-headline: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  :root {
+    --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  body {
+    font-family: var(--font-body);
+    background-color: #FFFDF5;
+    color: #1E293B;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Neo-brutalist & Animation Classes from Stitch */
+.hard-shadow {
+  box-shadow: 6px 6px 0px 0px #1E293B;
+  transition: transform 0.2s var(--ease-elastic), box-shadow 0.2s var(--ease-elastic);
+}
+.hard-shadow:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px #1E293B;
+}
+
+.hard-shadow-primary {
+  box-shadow: 6px 6px 0px 0px #0070f3;
+  transition: transform 0.2s var(--ease-elastic), box-shadow 0.2s var(--ease-elastic);
+}
+.hard-shadow-primary:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px #0070f3;
+}
+
+.sticker-card {
+  border: 2px solid #1E293B;
+  transition: all 0.3s var(--ease-elastic);
+}
+.sticker-card:hover {
+  transform: rotate(-1deg) scale(1.02);
+}
+
+.dot-grid {
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.marquee {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+  gap: 2rem;
+}
+.marquee-content {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-around;
+  min-width: 100%;
+  gap: 2rem;
+  animation: scroll 30s linear infinite;
+}
+@keyframes scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.candy-button {
+  position: relative;
+  background: #0070f3;
+  border: 2px solid #1E293B;
+  transition: transform 0.1s;
+}
+.candy-button:active {
+  transform: scale(0.95);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid #1E293B;
+}
+
+/* Scroll Reveal Animations from Stitch */
+.reveal {
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.6s var(--ease-elastic), transform 0.6s var(--ease-elastic);
+  will-change: transform, opacity;
+}
+.reveal.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Custom Road Scroll Animation for Loader */
+@keyframes road-scroll {
+  0% { background-position: 0px; }
+  100% { background-position: -40px; }
+}
+.road-line {
+  background-image: linear-gradient(90deg, #1E293B 50%, transparent 50%);
+  background-size: 20px 4px;
+  animation: road-scroll 0.6s linear infinite;
+}
+
+/* Custom Truck Bounce / Vibration Animation */
+@keyframes truck-vibrate {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.truck-loader-anim {
+  animation: truck-vibrate 0.2s ease-in-out infinite;
+}
