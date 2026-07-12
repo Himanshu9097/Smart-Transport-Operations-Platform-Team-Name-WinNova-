@@ -5,7 +5,7 @@ import {
   LogOut, Plus, Search, Truck, Users, Calendar, 
   Settings, LayoutGrid, Wrench, Shield, Check, Info, AlertTriangle,
   Play, Sparkles, MapPin, Gauge, Fuel, Thermometer, ArrowRight, X, UserPlus,
-  TrendingUp, CircleDollarSign, Download
+  TrendingUp, CircleDollarSign, Download, ArrowLeft, Upload, FileText, Menu
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, 
@@ -25,6 +25,7 @@ export default function Console() {
   };
 
   const [activeMenu, setActiveMenu] = useState('overview');
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   
   // Data states
   const [vehicles, setVehicles] = useState([]);
@@ -90,6 +91,22 @@ export default function Console() {
   const [dCategory, setDCategory] = useState('Class A');
   const [dExpiry, setDExpiry] = useState('');
   const [dContact, setDContact] = useState('');
+  const [dEmail, setDEmail] = useState('');
+  const [dScore, setDScore] = useState(100);
+  const [dStatus, setDStatus] = useState('available');
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [showEditDriver, setShowEditDriver] = useState(false);
+  const [dAadhaar, setDAadhaar] = useState('');
+  const [dPan, setDPan] = useState('');
+  const [dBloodGroup, setDBloodGroup] = useState('O+');
+  const [dAddress, setDAddress] = useState('');
+  const [activeDriverProfileId, setActiveDriverProfileId] = useState(null);
+  const [dossierTab, setDossierTab] = useState('documents');
+  const [dAvatar, setDAvatar] = useState('');
+  const [dAadhaarFile, setDAadhaarFile] = useState('');
+  const [dPanFile, setDPanFile] = useState('');
+  const [dDlFile, setDDlFile] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   // Form states - Trip Dispatch
   const [tSource, setTSource] = useState('');
@@ -220,6 +237,36 @@ export default function Console() {
     }
   };
 
+  // ImageKit file upload helper
+  const uploadToImageKit = async (file, fileName) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64 = reader.result;
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ file: base64, fileName })
+          });
+          const data = await response.json();
+          if (data.success) {
+            resolve(data.url);
+          } else {
+            reject(new Error(data.message || 'Upload failed'));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAddDriverSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
@@ -232,22 +279,122 @@ export default function Console() {
         },
         body: JSON.stringify({
           name: dName,
+          email: dEmail,
           license: dLicense,
           category: dCategory,
           expiry: dExpiry,
-          contact: dContact
+          contact: dContact,
+          score: Number(dScore) || 100,
+          status: dStatus || 'available',
+          aadhaar: dAadhaar,
+          pan: dPan,
+          bloodGroup: dBloodGroup,
+          address: dAddress,
+          avatar: dAvatar,
+          aadhaarFile: dAadhaarFile,
+          panFile: dPanFile,
+          dlFile: dDlFile
         })
       });
       const data = await response.json();
       if (data.success) {
         setShowAddDriver(false);
-        setDName(''); setDLicense(''); setDExpiry(''); setDContact('');
+        setDName(''); setDEmail(''); setDLicense(''); setDExpiry(''); setDContact('');
+        setDScore(100); setDStatus('available');
+        setDAadhaar(''); setDPan(''); setDBloodGroup('O+'); setDAddress('');
+        setDAvatar(''); setDAadhaarFile(''); setDPanFile(''); setDDlFile('');
         fetchData();
       } else {
         setSubmitError(data.message || 'Error adding driver');
       }
     } catch (err) {
       setSubmitError('Server connection failure');
+    }
+  };
+
+  const startEditDriver = (drv) => {
+    setSubmitError('');
+    setDName(drv.name);
+    setDEmail(drv.email || '');
+    setDLicense(drv.license);
+    setDCategory(drv.category);
+    setDExpiry(drv.expiry ? drv.expiry.split('T')[0] : '');
+    setDContact(drv.contact);
+    setDScore(drv.score || 100);
+    setDStatus(drv.status || 'available');
+    setDAadhaar(drv.aadhaar || '');
+    setDPan(drv.pan || '');
+    setDBloodGroup(drv.bloodGroup || 'O+');
+    setDAddress(drv.address || '');
+    setDAvatar(drv.avatar || '');
+    setDAadhaarFile(drv.aadhaarFile || '');
+    setDPanFile(drv.panFile || '');
+    setDDlFile(drv.dlFile || '');
+    setShowEditDriver(true);
+  };
+
+  const handleEditDriverSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    try {
+      const response = await fetch(`/api/drivers/${selectedDriver._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: dName,
+          email: dEmail,
+          license: dLicense,
+          category: dCategory,
+          expiry: dExpiry,
+          contact: dContact,
+          score: Number(dScore),
+          status: dStatus,
+          aadhaar: dAadhaar,
+          pan: dPan,
+          bloodGroup: dBloodGroup,
+          address: dAddress,
+          avatar: dAvatar,
+          aadhaarFile: dAadhaarFile,
+          panFile: dPanFile,
+          dlFile: dDlFile
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowEditDriver(false);
+        setSelectedDriver(data.data);
+        fetchData();
+      } else {
+        setSubmitError(data.message || 'Error updating driver profile');
+      }
+    } catch (err) {
+      setSubmitError('Server connection failure');
+    }
+  };
+
+  const handleDeleteDriver = async (driverId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this driver profile?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/drivers/${driverId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedDriver(null);
+        fetchData();
+      } else {
+        alert(data.message || 'Error deleting driver');
+      }
+    } catch (err) {
+      alert('Server connection failure');
     }
   };
 
@@ -482,7 +629,9 @@ export default function Console() {
       </div>
 
       {/* Sidebar Navigation - Fixed height sticky design to prevent stretching */}
-      <aside className="w-72 h-full bg-white/60 backdrop-blur-xl border-r-2 border-white/80 p-8 flex flex-col justify-between hidden md:flex flex-shrink-0 relative z-10">
+      <aside className={`h-full bg-white/60 backdrop-blur-xl border-white/80 flex flex-col justify-between hidden md:flex flex-shrink-0 relative z-10 transition-all duration-300 ${
+        sidebarVisible ? 'w-72 p-8 border-r-2 opacity-100' : 'w-0 p-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
+      }`}>
         <div className="space-y-12">
           {/* Logo container */}
           <div className="flex items-center gap-3">
@@ -562,18 +711,27 @@ export default function Console() {
 
         {/* Dashboard Title */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ fontFamily: "Nunito, sans-serif" }}>
-              {activeMenu === 'overview' && 'Operations Dashboard'}
-              {activeMenu === 'vehicles' && 'Vehicles Registry'}
-              {activeMenu === 'drivers' && 'Driver Crew'}
-              {activeMenu === 'schedule' && 'Dispatch Log'}
-              {activeMenu === 'maintenance' && 'Maintenance Log'}
-              {activeMenu === 'reports' && 'Reports & Analytics'}
-            </h1>
-            <p className="text-clay-muted font-medium text-sm md:text-base mt-1">
-              Active operations pipeline monitor.
-            </p>
+          <div className="flex items-start gap-4">
+            <button
+              onClick={() => setSidebarVisible(!sidebarVisible)}
+              className="mt-1 md:mt-2 p-3 bg-white border border-white/60 text-clay-primary rounded-[18px] shadow-clayCard hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+              title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ fontFamily: "Nunito, sans-serif" }}>
+                {activeMenu === 'overview' && 'Operations Dashboard'}
+                {activeMenu === 'vehicles' && 'Vehicles Registry'}
+                {activeMenu === 'drivers' && 'Driver Crew'}
+                {activeMenu === 'schedule' && 'Dispatch Log'}
+                {activeMenu === 'maintenance' && 'Maintenance Log'}
+                {activeMenu === 'reports' && 'Reports & Analytics'}
+              </h1>
+              <p className="text-clay-muted font-medium text-sm md:text-base mt-1">
+                Active operations pipeline monitor.
+              </p>
+            </div>
           </div>
           
           <div className="bg-white/80 backdrop-blur-xl border border-white px-4 py-2 rounded-full shadow-clayCard text-xs font-bold font-mono tracking-wide text-clay-primary flex items-center gap-1.5">
@@ -896,75 +1054,590 @@ export default function Console() {
            TAB 3: DRIVER MANAGEMENT
            ======================================================== */}
         {activeMenu === 'drivers' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center bg-white/40 p-4 rounded-[24px] border border-white/40 shadow-clayCard">
-              <div className="relative w-full max-w-xs">
-                <input
-                  type="text"
-                  placeholder="Search driver by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-5 py-3.5 pr-12 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs placeholder-clay-muted"
-                />
-                <Search className="absolute right-4 top-3.5 w-4 h-4 text-clay-muted" />
-              </div>
-              
-              <button
-                onClick={() => { setSubmitError(''); setShowAddDriver(true); }}
-                className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer"
-                style={{ fontFamily: "Nunito, sans-serif" }}
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Add Driver</span>
-              </button>
-            </div>
+          <div className="space-y-8 animate-fade-in">
+            {activeDriverProfileId && drivers.find(d => d._id === activeDriverProfileId) ? (
+              (() => {
+                const activeDrv = drivers.find(d => d._id === activeDriverProfileId);
+                const currentTrip = trips.find(t => t.driver?._id.toString() === activeDrv._id.toString() && t.status === 'dispatched');
+                const driverTrips = trips.filter(t => t.driver?._id.toString() === activeDrv._id.toString());
+                const daysLeft = Math.ceil((new Date(activeDrv.expiry) - new Date()) / (1000 * 60 * 60 * 24));
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDrivers.map(drv => (
-                <div 
-                  key={drv._id} 
-                  className="bg-white rounded-[32px] p-6 shadow-clayCard border border-white/60 flex flex-col justify-between gap-6 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-3 items-center">
-                      <div className="w-12 h-12 rounded-full bg-clay-primary/20 flex items-center justify-center font-bold text-clay-primary shadow-clayCard text-lg">
-                        {drv.name[0].toUpperCase()}
+                return (
+                  <div className="space-y-8">
+                    {/* Header Dossier Bar */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/40 p-5 rounded-[28px] border border-white/40 shadow-clayCard">
+                        <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => { setActiveDriverProfileId(null); setSelectedDriver(null); }}
+                          className="p-3 bg-white border border-white/60 text-clay-primary rounded-[20px] shadow-clayCard hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+                        >
+                          <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <label className="relative group cursor-pointer block">
+                          {activeDrv.avatar ? (
+                            <img src={activeDrv.avatar} alt={activeDrv.name} className="w-14 h-14 rounded-full object-cover shadow-clayCard border-2 border-clay-primary/20" />
+                          ) : (
+                            <div className="w-14 h-14 rounded-full bg-clay-primary/20 flex items-center justify-center font-bold text-clay-primary text-xl shadow-clayCard">
+                              {activeDrv.name[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="material-symbols-outlined text-white text-lg">photo_camera</span>
+                          </div>
+                          {/* Floating safety score badge in the profile picture */}
+                          <div className={`absolute -bottom-1 -right-1 min-w-[24px] h-6 px-1.5 rounded-full flex items-center justify-center font-mono text-[9px] font-black text-white border-2 border-white shadow-clayCard ${
+                            activeDrv.score >= 90 ? 'bg-clay-success' :
+                            activeDrv.score >= 75 ? 'bg-amber-500' : 'bg-red-500'
+                          }`} title={`Safety Score: ${activeDrv.score}%`}>
+                            {activeDrv.score}%
+                          </div>
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            setUploading(true);
+                            try {
+                              const url = await uploadToImageKit(file, `avatar_${activeDrv._id}`);
+                              await fetch(`/api/drivers/${activeDrv._id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                body: JSON.stringify({ avatar: url })
+                              });
+                              fetchData();
+                            } catch (err) { alert('Upload failed: ' + err.message); }
+                            setUploading(false);
+                          }} />
+                        </label>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h2 className="font-headline text-3xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>
+                              {activeDrv.name}
+                            </h2>
+                            <span className={`px-3.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              activeDrv.status === 'available' ? 'bg-clay-success/15 text-clay-success' :
+                              activeDrv.status === 'on_trip' ? 'bg-clay-tertiary/15 text-clay-tertiary' : 
+                              activeDrv.status === 'off_duty' ? 'bg-clay-muted/15 text-clay-muted' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {activeDrv.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-clay-muted font-bold uppercase tracking-wider mt-1">Indian Fleet Driver Dossier Profile</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-headline font-black text-lg text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>
-                          {drv.name}
-                        </h4>
-                        <span className="font-mono text-[9px] text-clay-muted font-bold uppercase tracking-wider block">
-                          LIC: {drv.license} ({drv.category})
-                        </span>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => startEditDriver(activeDrv)}
+                          className="bg-white text-clay-primary border border-white/60 font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayCard hover:-translate-y-0.5 active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: "Nunito, sans-serif" }}
+                        >
+                          Edit Profile
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDriver(activeDrv._id)}
+                          className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayCard active:scale-[0.95] transition-all uppercase tracking-wider cursor-pointer"
+                          style={{ fontFamily: "Nunito, sans-serif" }}
+                        >
+                          Delete Profile
+                        </button>
                       </div>
                     </div>
 
-                    <span className={`px-3.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                      drv.status === 'available' ? 'bg-clay-success/15 text-clay-success' :
-                      drv.status === 'on_trip' ? 'bg-clay-tertiary/15 text-clay-tertiary' : 
-                      drv.status === 'off_duty' ? 'bg-clay-muted/15 text-clay-muted' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {drv.status.replace('_', ' ')}
-                    </span>
+                    {/* Dossier Alert Warning Bar */}
+                    {daysLeft < 0 ? (
+                      <div className="bg-red-50 border border-red-200 p-4 rounded-[24px] flex items-center gap-3 shadow-clayCard animate-pulse">
+                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                        <span className="font-mono text-xs font-black uppercase text-red-700">LICENSE EXPIRED! This driver license expired on {new Date(activeDrv.expiry).toLocaleDateString()}. Please replace immediately.</span>
+                      </div>
+                    ) : daysLeft <= 30 ? (
+                      <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-[24px] flex items-center gap-3 shadow-clayCard">
+                        <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                        <span className="font-mono text-xs font-black uppercase text-yellow-700">LICENSE EXPIRES IN {daysLeft} DAYS! Request renewal document verification.</span>
+                      </div>
+                    ) : null}
+
+                    {/* Split dossier layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                      
+                      {/* LEFT Dossier Info Panel */}
+                      <div className="lg:col-span-5 space-y-8">
+                        <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+                          <div className="flex gap-4 items-center border-b border-slate-100 pb-5">
+                            <div className="relative">
+                              {activeDrv.avatar ? (
+                                <img src={activeDrv.avatar} alt={activeDrv.name} className="w-16 h-16 rounded-full object-cover shadow-clayCard border-2 border-clay-primary/20" />
+                              ) : (
+                                <div className="w-16 h-16 rounded-full bg-clay-primary/20 flex items-center justify-center font-bold text-clay-primary text-2xl shadow-clayCard">
+                                  {activeDrv.name[0].toUpperCase()}
+                                </div>
+                              )}
+                              {/* Floating safety score badge in the profile picture */}
+                              <div className={`absolute -bottom-1 -right-1 min-w-[24px] h-6 px-1.5 rounded-full flex items-center justify-center font-mono text-[9px] font-black text-white border-2 border-white shadow-clayCard ${
+                                activeDrv.score >= 90 ? 'bg-clay-success' :
+                                activeDrv.score >= 75 ? 'bg-amber-500' : 'bg-red-500'
+                              }`} title={`Safety Score: ${activeDrv.score}%`}>
+                                {activeDrv.score}%
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-headline font-black text-xl text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>{activeDrv.name}</h4>
+                              <p className="font-mono text-[9px] text-clay-muted font-bold uppercase tracking-widest mt-0.5">Blood Group: {activeDrv.bloodGroup || 'N/A'}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4 text-xs font-bold">
+                            <div className="flex justify-between border-b border-slate-50 pb-2">
+                              <span className="text-clay-muted uppercase">Phone Contact</span>
+                              <span>{activeDrv.contact}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-50 pb-2">
+                              <span className="text-clay-muted uppercase">Email Address</span>
+                              <span className="lowercase">{activeDrv.email || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-50 pb-2">
+                              <span className="text-clay-muted uppercase">RTO Class License</span>
+                              <span>{activeDrv.category}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-50 pb-2">
+                              <span className="text-clay-muted uppercase">Verification Status</span>
+                              <span className="uppercase text-clay-primary">{activeDrv.status}</span>
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <span className="text-clay-muted uppercase">Address Details</span>
+                              <p className="font-medium text-clay-foreground leading-normal mt-0.5">{activeDrv.address || 'No residential address verified.'}</p>
+                            </div>
+                          </div>
+
+                          {/* Safety score Progress ring */}
+                          <div className="bg-clay-canvas/50 p-6 rounded-[24px] border border-white/80 shadow-clayPressed flex justify-between items-center gap-4">
+                            <div>
+                              <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider block">Safety Score Rating</span>
+                              <p className="font-bold text-xs text-clay-muted mt-1 leading-normal uppercase">Calculated based on speed compliance & accident log history.</p>
+                            </div>
+                            <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-white rounded-full shadow-clayCard relative">
+                              <svg className="w-full h-full transform -rotate-90">
+                                {/* Background circle (grey) */}
+                                <circle
+                                  cx="32"
+                                  cy="32"
+                                  r="24"
+                                  stroke="#E2E8F0"
+                                  strokeWidth="5"
+                                  fill="none"
+                                />
+                                {/* Foreground progress circle (blue) */}
+                                <circle
+                                  cx="32"
+                                  cy="32"
+                                  r="24"
+                                  stroke="#3B82F6"
+                                  strokeWidth="5"
+                                  fill="none"
+                                  strokeDasharray={2 * Math.PI * 24}
+                                  strokeDashoffset={2 * Math.PI * 24 * (1 - activeDrv.score / 100)}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <span className="absolute font-mono text-xs font-black text-blue-600">{activeDrv.score}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Current Active Trip panel */}
+                        <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+                          <h4 className="font-headline text-lg font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Current route assignment</h4>
+                          {currentTrip ? (
+                            <div className="space-y-4">
+                              <div className="bg-clay-canvas/50 p-5 rounded-[24px] border border-white/60 space-y-2.5">
+                                <div className="flex justify-between text-[10px] font-black text-clay-primary uppercase font-mono tracking-widest">
+                                  <span>{currentTrip.id}</span>
+                                  <span>In Transit</span>
+                                </div>
+                                <h5 className="font-headline font-black text-base uppercase text-clay-foreground mt-1" style={{ fontFamily: "Nunito, sans-serif" }}>
+                                  {currentTrip.source} ➜ {currentTrip.destination}
+                                </h5>
+                                <div className="flex justify-between text-xs font-bold pt-2 border-t border-slate-100 mt-2 text-clay-muted">
+                                  <span>Cargo Load: {currentTrip.weight}T</span>
+                                  <span>Distance: {currentTrip.distance} KM</span>
+                                </div>
+                              </div>
+                              <div className="relative pt-1">
+                                <div className="overflow-hidden h-2.5 text-xs flex rounded-full bg-[#EFEBF5] shadow-inner">
+                                  <div className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-clay-primary w-2/3 transition-all duration-500"></div>
+                                </div>
+                                <div className="flex justify-between text-[9px] font-mono font-bold text-clay-muted uppercase mt-1.5 tracking-wider">
+                                  <span>Dispatched</span>
+                                  <span>Estimated Arrival (66%)</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-clay-muted space-y-2">
+                              <span className="material-symbols-outlined text-4xl text-slate-300">route</span>
+                              <p className="font-mono text-[9px] font-black uppercase tracking-wider block">No active transit route assigned</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* RIGHT Cards Overlay & Tabs Panel */}
+                      <div className="lg:col-span-7 space-y-8">
+                        {/* Tab Toggle buttons */}
+                        <div className="flex bg-white/40 p-2 rounded-[20px] border border-white/40 shadow-clayCard">
+                          <button
+                            onClick={() => setDossierTab('documents')}
+                            className={`flex-1 py-3.5 text-xs font-black rounded-[16px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                              dossierTab === 'documents' ? 'bg-white text-clay-primary shadow-clayCard' : 'text-clay-muted hover:text-clay-primary'
+                            }`}
+                            style={{ fontFamily: "Nunito, sans-serif" }}
+                          >
+                            Government Documents
+                          </button>
+                          <button
+                            onClick={() => setDossierTab('trips')}
+                            className={`flex-1 py-3.5 text-xs font-black rounded-[16px] uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                              dossierTab === 'trips' ? 'bg-white text-clay-primary shadow-clayCard' : 'text-clay-muted hover:text-clay-primary'
+                            }`}
+                            style={{ fontFamily: "Nunito, sans-serif" }}
+                          >
+                            Dispatch History ({driverTrips.length})
+                          </button>
+                        </div>
+
+                        {/* Government smart cards visual mockups */}
+                        {dossierTab === 'documents' ? (
+                          <div className="space-y-8">
+                            
+                            {/* Aadhaar Card Mockup */}
+                            <div className="bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 rounded-[32px] p-8 border-2 border-emerald-100 shadow-clayCard relative overflow-hidden group">
+                              <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:scale-110 transition-all duration-500"></div>
+                              
+                              {/* Indian emblem mock */}
+                              <div className="flex justify-between items-start border-b border-emerald-100 pb-4 mb-5">
+                                <div className="space-y-0.5">
+                                  <h4 className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Bharat Sarkar (Govt of India)</h4>
+                                  <h5 className="text-[9px] font-bold text-emerald-700 tracking-wide">Unique Identification Authority of India (UIDAI)</h5>
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-bold text-[8px]">UID</div>
+                              </div>
+
+                              <div className="flex gap-6 items-center">
+                                <div className="w-24 h-28 bg-emerald-500/15 border border-emerald-200/50 rounded-2xl flex flex-col items-center justify-center text-emerald-700 font-bold shadow-inner">
+                                  <span className="material-symbols-outlined text-4xl">account_box</span>
+                                  <span className="text-[8px] uppercase tracking-wider mt-1">Photo verified</span>
+                                </div>
+
+                                <div className="space-y-3 flex-1 text-xs">
+                                  <div>
+                                    <span className="text-[9px] text-emerald-600/70 font-mono font-bold uppercase tracking-wider block">Full Name</span>
+                                    <p className="font-black text-slate-800 uppercase">{activeDrv.name}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] text-emerald-600/70 font-mono font-bold uppercase tracking-wider block">Birth Year / Gender</span>
+                                    <p className="font-bold text-slate-700">Male</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-6 pt-4 border-t border-emerald-100/50 text-center">
+                                <span className="text-[8px] text-emerald-600/70 font-mono font-bold uppercase tracking-wider block mb-1">Aadhaar Number</span>
+                                <h3 className="font-mono text-xl font-black tracking-[0.25em] text-slate-800">
+                                  {activeDrv.aadhaar ? activeDrv.aadhaar.replace(/(\d{4})/g, '$1 ').trim() : 'XXXX XXXX XXXX'}
+                                </h3>
+                              </div>
+                              <div className="mt-4 flex justify-center">
+                                {activeDrv.aadhaarFile ? (
+                                  <a href={activeDrv.aadhaarFile} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer">
+                                    <span className="material-symbols-outlined text-sm">visibility</span>
+                                    View Aadhaar Document
+                                  </a>
+                                ) : (
+                                  <label className="inline-flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer border border-emerald-200">
+                                    <span className="material-symbols-outlined text-sm">upload_file</span>
+                                    {uploading ? 'Uploading...' : 'Upload Aadhaar PDF'}
+                                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                                      const file = e.target.files[0];
+                                      if (!file) return;
+                                      setUploading(true);
+                                      try {
+                                        const url = await uploadToImageKit(file, `aadhaar_${activeDrv._id}`);
+                                        await fetch(`/api/drivers/${activeDrv._id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                          body: JSON.stringify({ aadhaarFile: url })
+                                        });
+                                        fetchData();
+                                      } catch (err) { alert('Upload failed: ' + err.message); }
+                                      setUploading(false);
+                                    }} />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Driving License Mockup */}
+                            <div className="bg-gradient-to-br from-amber-50 via-white to-amber-50/30 rounded-[32px] p-8 border-2 border-amber-100 shadow-clayCard relative overflow-hidden group">
+                              <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:scale-110 transition-all duration-500"></div>
+
+                              <div className="flex justify-between items-start border-b border-amber-100 pb-4 mb-5">
+                                <div className="space-y-0.5">
+                                  <h4 className="text-[10px] font-black uppercase text-amber-800 tracking-wider">INDIAN UNION DRIVING LICENSE</h4>
+                                  <h5 className="text-[9px] font-bold text-amber-700 tracking-wide">Transport Department / RTO Registry</h5>
+                                </div>
+                                <span className="material-symbols-outlined text-amber-600 text-2xl">badge</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-[9px] text-amber-600/70 font-mono font-bold uppercase tracking-wider block">License Number</span>
+                                  <p className="font-black text-slate-800 font-mono tracking-widest">{activeDrv.license}</p>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-amber-600/70 font-mono font-bold uppercase tracking-wider block">RTO Vehicle Class</span>
+                                  <p className="font-black text-amber-700 uppercase">{activeDrv.category}</p>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-amber-600/70 font-mono font-bold uppercase tracking-wider block">Authority Badge</span>
+                                  <p className="font-bold text-slate-700 uppercase">TRANS VEHICLE ONLY</p>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-amber-600/70 font-mono font-bold uppercase tracking-wider block">Expiry Date</span>
+                                  <p className={`font-bold ${daysLeft < 0 ? 'text-red-600 font-black animate-pulse' : 'text-slate-700'}`}>
+                                    {new Date(activeDrv.expiry).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex justify-center">
+                                {activeDrv.dlFile ? (
+                                  <a href={activeDrv.dlFile} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer">
+                                    <span className="material-symbols-outlined text-sm">visibility</span>
+                                    View DL Document
+                                  </a>
+                                ) : (
+                                  <label className="inline-flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer border border-amber-200">
+                                    <span className="material-symbols-outlined text-sm">upload_file</span>
+                                    {uploading ? 'Uploading...' : 'Upload DL PDF'}
+                                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                                      const file = e.target.files[0];
+                                      if (!file) return;
+                                      setUploading(true);
+                                      try {
+                                        const url = await uploadToImageKit(file, `dl_${activeDrv._id}`);
+                                        await fetch(`/api/drivers/${activeDrv._id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                          body: JSON.stringify({ dlFile: url })
+                                        });
+                                        fetchData();
+                                      } catch (err) { alert('Upload failed: ' + err.message); }
+                                      setUploading(false);
+                                    }} />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* PAN Card Mockup */}
+                            <div className="bg-gradient-to-br from-sky-50 via-white to-sky-50/30 rounded-[32px] p-8 border-2 border-sky-100 shadow-clayCard relative overflow-hidden group">
+                              <div className="absolute right-0 top-0 w-32 h-32 bg-sky-500/5 rounded-full blur-3xl group-hover:scale-110 transition-all duration-500"></div>
+
+                              <div className="flex justify-between items-start border-b border-sky-100 pb-4 mb-5">
+                                <div className="space-y-0.5">
+                                  <h4 className="text-[10px] font-black uppercase text-sky-800 tracking-wider">Income Tax Department, Government of India</h4>
+                                  <h5 className="text-[9px] font-bold text-sky-700 tracking-wide">Permanent Account Number (PAN) Card</h5>
+                                </div>
+                                <span className="material-symbols-outlined text-sky-600 text-2xl">credit_card</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 text-xs mb-4">
+                                <div>
+                                  <span className="text-[9px] text-sky-600/70 font-mono font-bold uppercase tracking-wider block">Cardholder Name</span>
+                                  <p className="font-black text-slate-800 uppercase">{activeDrv.name}</p>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-sky-600/70 font-mono font-bold uppercase tracking-wider block">Identity Verified</span>
+                                  <p className="font-bold text-slate-700 uppercase">Govt of India</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 pt-4 border-t border-sky-100/50 text-center">
+                                <span className="text-[8px] text-sky-600/70 font-mono font-bold uppercase tracking-wider block mb-1">PAN Code</span>
+                                <h3 className="font-mono text-xl font-black tracking-[0.25em] text-slate-800">
+                                  {activeDrv.pan ? activeDrv.pan.toUpperCase() : 'ABCDE1234F'}
+                                </h3>
+                              </div>
+                              <div className="mt-4 flex justify-center">
+                                {activeDrv.panFile ? (
+                                  <a href={activeDrv.panFile} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer">
+                                    <span className="material-symbols-outlined text-sm">visibility</span>
+                                    View PAN Document
+                                  </a>
+                                ) : (
+                                  <label className="inline-flex items-center gap-2 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold text-[10px] px-5 py-2.5 rounded-full shadow-clayCard transition-all uppercase tracking-wider cursor-pointer border border-sky-200">
+                                    <span className="material-symbols-outlined text-sm">upload_file</span>
+                                    {uploading ? 'Uploading...' : 'Upload PAN PDF'}
+                                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                                      const file = e.target.files[0];
+                                      if (!file) return;
+                                      setUploading(true);
+                                      try {
+                                        const url = await uploadToImageKit(file, `pan_${activeDrv._id}`);
+                                        await fetch(`/api/drivers/${activeDrv._id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                          body: JSON.stringify({ panFile: url })
+                                        });
+                                        fetchData();
+                                      } catch (err) { alert('Upload failed: ' + err.message); }
+                                      setUploading(false);
+                                    }} />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+
+                          </div>
+                        ) : (
+                          <div className="bg-white rounded-[32px] p-8 border border-white/60 shadow-clayCard space-y-6">
+                            <h4 className="font-headline text-xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Recent Dispatched logs</h4>
+                            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                              {driverTrips.length === 0 ? (
+                                <div className="text-center py-10 text-clay-muted">
+                                  <p className="font-bold uppercase text-xs">No dispatch history logged for driver.</p>
+                                </div>
+                              ) : (
+                                driverTrips.map(t => (
+                                  <div key={t._id} className="p-5 bg-clay-canvas/40 rounded-[24px] border border-white/60 shadow-clayCard hover:-translate-y-0.5 transition-all flex justify-between items-center">
+                                    <div className="space-y-1">
+                                      <div className="flex gap-2 items-center text-[10px] font-black text-clay-primary uppercase font-mono tracking-widest">
+                                        <span>{t.id}</span>
+                                        <span>•</span>
+                                        <span>{t.distance} KM</span>
+                                      </div>
+                                      <h5 className="font-headline font-black text-sm uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>
+                                        {t.source} ➜ {t.destination}
+                                      </h5>
+                                    </div>
+                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                      t.status === 'completed' ? 'bg-clay-success/15 text-clay-success' :
+                                      t.status === 'dispatched' ? 'bg-clay-tertiary/15 text-clay-tertiary' : 'bg-slate-100 text-slate-500'
+                                    }`}>{t.status}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>
                   </div>
+                );
+              })()
+            ) : (
+              // Else render the Crew List grid view
+              <div className="space-y-8">
+                <div className="flex justify-between items-center bg-white/40 p-4 rounded-[24px] border border-white/40 shadow-clayCard">
+                  <div className="relative w-full max-w-xs">
+                    <input
+                      type="text"
+                      placeholder="Search driver by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-5 py-3.5 pr-12 rounded-[20px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs placeholder-clay-muted"
+                    />
+                    <Search className="absolute right-4 top-3.5 w-4 h-4 text-clay-muted" />
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="bg-white border border-white/60 text-clay-muted font-bold text-xs px-4 py-3.5 rounded-[20px] shadow-clayCard focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="available">Available</option>
+                      <option value="on_trip">On Trip</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="off_duty">Off Duty</option>
+                    </select>
 
-                  <div className="border-t border-slate-100 pt-4 flex justify-between items-center">
-                    <div>
-                      <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider">License Expiry</span>
-                      <p className={`font-bold text-xs mt-0.5 ${new Date(drv.expiry) < new Date() ? 'text-red-600 font-black animate-pulse' : 'text-clay-foreground'}`}>
-                        {new Date(drv.expiry).toLocaleDateString()} {new Date(drv.expiry) < new Date() ? '(Expired)' : ''}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider block">Safety Rating</span>
-                      <span className="font-mono text-xs font-black text-clay-primary mt-0.5 block">{drv.score}%</span>
-                    </div>
+                    <button
+                      onClick={() => { setSubmitError(''); setShowAddDriver(true); }}
+                      className="bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white font-bold text-xs px-5 py-3.5 rounded-[20px] shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer"
+                      style={{ fontFamily: "Nunito, sans-serif" }}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Add Driver</span>
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredDrivers.map(drv => (
+                    <div 
+                      key={drv._id} 
+                      onClick={() => { setSelectedDriver(drv); setActiveDriverProfileId(drv._id); }}
+                      className="bg-white rounded-[32px] p-6 shadow-clayCard border border-white/60 flex flex-col justify-between gap-6 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex gap-3 items-center">
+                          <div className="relative">
+                            {drv.avatar ? (
+                              <img src={drv.avatar} alt={drv.name} className="w-12 h-12 rounded-full object-cover shadow-clayCard border border-slate-100" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-clay-primary/20 flex items-center justify-center font-bold text-clay-primary shadow-clayCard text-lg">
+                                {drv.name[0].toUpperCase()}
+                              </div>
+                            )}
+                            {/* Floating safety score badge in the profile picture */}
+                            <div className={`absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center font-mono text-[8px] font-black text-white border border-white shadow-md ${
+                              drv.score >= 90 ? 'bg-clay-success' :
+                              drv.score >= 75 ? 'bg-amber-500' : 'bg-red-500'
+                            }`} title={`Safety Score: ${drv.score}%`}>
+                              {drv.score}%
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-headline font-black text-lg text-clay-foreground uppercase" style={{ fontFamily: "Nunito, sans-serif" }}>
+                              {drv.name}
+                            </h4>
+                            <span className="font-mono text-[9px] text-clay-muted font-bold uppercase tracking-wider block">
+                              LIC: {drv.license} ({drv.category})
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`px-3.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                          drv.status === 'available' ? 'bg-clay-success/15 text-clay-success' :
+                          drv.status === 'on_trip' ? 'bg-clay-tertiary/15 text-clay-tertiary' : 
+                          drv.status === 'off_duty' ? 'bg-clay-muted/15 text-clay-muted' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {drv.status.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-4 flex justify-between items-center">
+                        <div>
+                          <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider">License Expiry</span>
+                          <p className={`font-bold text-xs mt-0.5 ${new Date(drv.expiry) < new Date() ? 'text-red-600 font-black animate-pulse' : 'text-clay-foreground'}`}>
+                            {new Date(drv.expiry).toLocaleDateString()} {new Date(drv.expiry) < new Date() ? '(Expired)' : ''}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="font-mono text-[9px] text-clay-muted font-black uppercase tracking-wider block">Safety Rating</span>
+                          <span className="font-mono text-xs font-black text-clay-primary mt-0.5 block">{drv.score}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1537,7 +2210,7 @@ export default function Console() {
       {/* 2. Add Driver Modal */}
       {showAddDriver && (
         <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-hidden">
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-y-auto">
             
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
               <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Create Driver Profile</h3>
@@ -1600,24 +2273,406 @@ export default function Console() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Contact Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +91 9988776655"
+                    value={dContact}
+                    onChange={(e) => setDContact(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. rahul@transitops.co"
+                    value={dEmail}
+                    onChange={(e) => setDEmail(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Safety Score (%)</label>
+                  <input
+                    type="text"
+                    value="Auto-calculated (95% Base)"
+                    className="bg-slate-100 border-0 text-clay-muted font-semibold px-4 py-2.5 rounded-[16px] shadow-inner focus:outline-none transition-all text-xs cursor-not-allowed"
+                    disabled
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Status</label>
+                  <select
+                    value={dStatus}
+                    onChange={(e) => setDStatus(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    required
+                  >
+                    <option value="available">Available</option>
+                    <option value="on_trip">On Trip</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="off_duty">Off Duty</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Aadhaar Number</label>
+                  <input
+                    type="text"
+                    maxLength="12"
+                    placeholder="e.g. 123456789012"
+                    value={dAadhaar}
+                    onChange={(e) => setDAadhaar(e.target.value.replace(/\D/g, ''))}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">PAN Card Number</label>
+                  <input
+                    type="text"
+                    maxLength="10"
+                    placeholder="e.g. ABCDE1234F"
+                    value={dPan}
+                    onChange={(e) => setDPan(e.target.value.toUpperCase())}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Blood Group</label>
+                  <select
+                    value={dBloodGroup}
+                    onChange={(e) => setDBloodGroup(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Residential Address</label>
+                  <textarea
+                    rows="2"
+                    placeholder="e.g. Sector-15, Noida, UP, India"
+                    value={dAddress}
+                    onChange={(e) => setDAddress(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Document Uploads Section */}
+              <div className="border-t border-slate-100 pt-4 mt-2">
+                <h4 className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted mb-3">Document Uploads (Optional)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dAvatar ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dAvatar ? 'check_circle' : 'person'}</span>
+                    {dAvatar ? 'Photo ✓' : 'Profile Photo'}
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `avatar_new`); setDAvatar(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dAadhaarFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dAadhaarFile ? 'check_circle' : 'upload_file'}</span>
+                    {dAadhaarFile ? 'Aadhaar ✓' : 'Aadhaar PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `aadhaar_new`); setDAadhaarFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dPanFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dPanFile ? 'check_circle' : 'upload_file'}</span>
+                    {dPanFile ? 'PAN ✓' : 'PAN PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `pan_new`); setDPanFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dDlFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dDlFile ? 'check_circle' : 'upload_file'}</span>
+                    {dDlFile ? 'DL ✓' : 'DL PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `dl_new`); setDDlFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                </div>
+                {uploading && <p className="text-[10px] font-bold text-clay-primary mt-2 animate-pulse uppercase">Uploading to cloud storage...</p>}
+              </div>
+
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2 disabled:opacity-50"
+                style={{ fontFamily: "Nunito, sans-serif" }}
+              >
+                {uploading ? 'Uploading Files...' : 'Register Driver'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Driver Modal */}
+      {showEditDriver && (
+        <div className="fixed inset-0 z-50 bg-[#332F3A]/30 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-[32px] p-8 shadow-claySurface border border-white/80 relative z-50 overflow-y-auto">
+            
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+              <h3 className="font-headline text-2xl font-black uppercase text-clay-foreground" style={{ fontFamily: "Nunito, sans-serif" }}>Modify Driver Profile</h3>
+              <button onClick={() => setShowEditDriver(false)} className="text-clay-muted hover:text-clay-foreground font-black text-sm uppercase tracking-wider cursor-pointer">Close</button>
+            </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 p-3 mb-4 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="font-mono text-[10px] font-bold text-red-600 leading-normal uppercase">{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditDriverSubmit} className="space-y-4">
               <div className="flex flex-col space-y-1">
-                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Contact Number</label>
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Driver Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. +91 9988776655"
-                  value={dContact}
-                  onChange={(e) => setDContact(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  value={dName}
+                  onChange={(e) => setDName(e.target.value)}
                   className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
                   required
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">License Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DL-HEV-9902"
+                    value={dLicense}
+                    onChange={(e) => setDLicense(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">License Category</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Class A Heavy"
+                    value={dCategory}
+                    onChange={(e) => setDCategory(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">License Expiry Date</label>
+                <input
+                  type="date"
+                  value={dExpiry}
+                  onChange={(e) => setDExpiry(e.target.value)}
+                  className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs cursor-pointer text-clay-muted"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Contact Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +91 9988776655"
+                    value={dContact}
+                    onChange={(e) => setDContact(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. rahul@transitops.co"
+                    value={dEmail}
+                    onChange={(e) => setDEmail(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Safety Score (%)</label>
+                  <input
+                    type="text"
+                    value={`${dScore}% (Auto-Calculated)`}
+                    className="bg-slate-100 border-0 text-clay-muted font-semibold px-4 py-2.5 rounded-[16px] shadow-inner focus:outline-none transition-all text-xs cursor-not-allowed"
+                    disabled
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Status</label>
+                  <select
+                    value={dStatus}
+                    onChange={(e) => setDStatus(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                    required
+                  >
+                    <option value="available">Available</option>
+                    <option value="on_trip">On Trip</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="off_duty">Off Duty</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Aadhaar Number</label>
+                  <input
+                    type="text"
+                    maxLength="12"
+                    placeholder="e.g. 123456789012"
+                    value={dAadhaar}
+                    onChange={(e) => setDAadhaar(e.target.value.replace(/\D/g, ''))}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">PAN Card Number</label>
+                  <input
+                    type="text"
+                    maxLength="10"
+                    placeholder="e.g. ABCDE1234F"
+                    value={dPan}
+                    onChange={(e) => setDPan(e.target.value.toUpperCase())}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Blood Group</label>
+                  <select
+                    value={dBloodGroup}
+                    onChange={(e) => setDBloodGroup(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted">Residential Address</label>
+                  <textarea
+                    rows="2"
+                    placeholder="e.g. Sector-15, Noida, UP, India"
+                    value={dAddress}
+                    onChange={(e) => setDAddress(e.target.value)}
+                    className="bg-[#EFEBF5] border-0 text-clay-foreground font-semibold px-4 py-2.5 rounded-[16px] shadow-clayPressed focus:bg-white focus:outline-none focus:ring-4 focus:ring-clay-primary/10 transition-all text-xs resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Document Uploads Section */}
+              <div className="border-t border-slate-100 pt-4 mt-2">
+                <h4 className="font-mono text-[9px] font-black uppercase tracking-wider text-clay-muted mb-3">Document Uploads</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dAvatar ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dAvatar ? 'check_circle' : 'person'}</span>
+                    {dAvatar ? 'Photo ✓' : 'Profile Photo'}
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `avatar_edit`); setDAvatar(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dAadhaarFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dAadhaarFile ? 'check_circle' : 'upload_file'}</span>
+                    {dAadhaarFile ? 'Aadhaar ✓' : 'Aadhaar PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `aadhaar_edit`); setDAadhaarFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dPanFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dPanFile ? 'check_circle' : 'upload_file'}</span>
+                    {dPanFile ? 'PAN ✓' : 'PAN PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `pan_edit`); setDPanFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                  <label className={`flex items-center gap-2 bg-[#EFEBF5] px-4 py-2.5 rounded-[16px] shadow-clayPressed cursor-pointer hover:bg-white transition-all text-xs font-semibold ${dDlFile ? 'text-clay-success' : 'text-clay-muted'}`}>
+                    <span className="material-symbols-outlined text-sm">{dDlFile ? 'check_circle' : 'upload_file'}</span>
+                    {dDlFile ? 'DL ✓' : 'DL PDF'}
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try { const url = await uploadToImageKit(file, `dl_edit`); setDDlFile(url); } catch (err) { alert('Upload failed'); }
+                      setUploading(false);
+                    }} />
+                  </label>
+                </div>
+                {uploading && <p className="text-[10px] font-bold text-clay-primary mt-2 animate-pulse uppercase">Uploading to cloud storage...</p>}
+              </div>
+
               <button
                 type="submit"
-                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2"
+                disabled={uploading}
+                className="w-full bg-gradient-to-br from-[#A78BFA] to-[#7C3AED] text-white py-3.5 rounded-[20px] font-mono text-xs font-bold uppercase tracking-widest shadow-clayButton hover:shadow-[14px_14px_28px_rgba(139,92,246,0.35)] active:scale-[0.95] active:shadow-clayPressed transition-all cursor-pointer mt-2 disabled:opacity-50"
                 style={{ fontFamily: "Nunito, sans-serif" }}
               >
-                Register Driver
+                {uploading ? 'Uploading Files...' : 'Save Changes'}
               </button>
             </form>
           </div>

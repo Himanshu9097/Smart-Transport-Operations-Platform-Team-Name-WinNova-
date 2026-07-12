@@ -6,6 +6,48 @@ const Trip = require('../models/Trip');
 const Maintenance = require('../models/Maintenance');
 const Expense = require('../models/Expense');
 const { protect } = require('../middleware/authMiddleware');
+const https = require('https');
+
+// Helper to automatically recalculate and save a driver's safety score based on profile documents and trips
+async function recalculateDriverScore(driverId) {
+  try {
+    const driver = await Driver.findById(driverId);
+    if (!driver) return 95;
+
+    let score = 95; // base score
+
+    // Expiry check
+    const today = new Date();
+    const expiryDate = new Date(driver.expiry);
+    if (expiryDate < today) {
+      score -= 30; // Expired license penalty
+    }
+
+    // Document checks
+    if (!driver.avatar) score -= 5;
+    if (!driver.aadhaarFile) score -= 10;
+    if (!driver.panFile) score -= 5;
+    if (!driver.dlFile) score -= 15;
+
+    // Trip checks
+    const trips = await Trip.find({ driver: driverId });
+    const completedCount = trips.filter(t => t.status === 'completed').length;
+    const cancelledCount = trips.filter(t => t.status === 'cancelled').length;
+
+    score += (completedCount * 3);  // safe completed trips reward
+    score -= (cancelledCount * 10); // cancelled trips penalty
+
+    // Keep score bounds: 0 to 100
+    score = Math.max(0, Math.min(100, score));
+
+    driver.score = score;
+    await driver.save();
+    return score;
+  } catch (err) {
+    console.error('Error recalculating driver score:', err);
+    return 95;
+  }
+}
 
 // ==========================================
 // 1. VEHICLES REGISTRY
@@ -52,8 +94,84 @@ router.post('/vehicles', protect, async (req, res) => {
 router.get('/drivers', protect, async (req, res) => {
   try {
     const drivers = await Driver.find({});
-    res.json({ success: true, count: drivers.length, data: drivers });
+    for (const d of drivers) {
+      await recalculateDriverScore(d._id);
+    }
+    const updatedDrivers = await Driver.find({});
+    res.json({ success: true, count: updatedDrivers.length, data: updatedDrivers });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   POST /api/upload
+router.post('/upload', protect, async (req, res) => {
+  try {
+    const { file, fileName } = req.body;
+    if (!file || !fileName) {
+      return res.status(400).json({ success: false, message: 'Missing file content or fileName' });
+    }
+
+    // ImageKit upload API requires multipart/form-data
+    const boundary = '----FormBoundary' + Date.now().toString(16);
+    
+    // Build multipart body parts
+    const parts = [];
+    
+    // file field (base64 data URI string)
+    parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="file"\r\n\r\n${file}\r\n`);
+    
+    // fileName field
+    parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="fileName"\r\n\r\n${fileName}\r\n`);
+    
+    // closing boundary
+    parts.push(`--${boundary}--\r\n`);
+    
+    const bodyStr = parts.join('');
+    const bodyBuffer = Buffer.from(bodyStr, 'utf-8');
+
+    const IMAGEKIT_PRIVATE_KEY = 'private_pcy2TU8UVadsQ/FtlE1MHwUZ8r8=';
+
+    const options = {
+      hostname: 'upload.imagekit.io',
+      path: '/api/v1/files/upload',
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length,
+        'Authorization': 'Basic ' + Buffer.from(IMAGEKIT_PRIVATE_KEY + ':').toString('base64')
+      }
+    };
+
+    const ikReq = https.request(options, (ikRes) => {
+      let rawData = '';
+      ikRes.on('data', (chunk) => { rawData += chunk; });
+      ikRes.on('end', () => {
+        try {
+          const parsed = JSON.parse(rawData);
+          if (ikRes.statusCode >= 200 && ikRes.statusCode < 300) {
+            res.status(200).json({ success: true, url: parsed.url, fileId: parsed.fileId });
+          } else {
+            console.error('ImageKit error:', ikRes.statusCode, rawData);
+            res.status(ikRes.statusCode).json({ success: false, message: parsed.message || 'ImageKit upload failed' });
+          }
+        } catch (e) {
+          console.error('ImageKit parse error:', rawData);
+          res.status(500).json({ success: false, message: 'Invalid response from ImageKit' });
+        }
+      });
+    });
+
+    ikReq.on('error', (err) => {
+      console.error('ImageKit request error:', err.message);
+      res.status(500).json({ success: false, message: err.message });
+    });
+
+    ikReq.write(bodyBuffer);
+    ikReq.end();
+
+  } catch (err) {
+    console.error('Upload route error:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -61,7 +179,7 @@ router.get('/drivers', protect, async (req, res) => {
 // @route   POST /api/drivers
 router.post('/drivers', protect, async (req, res) => {
   try {
-    const { name, license, category, expiry, contact, score, status } = req.body;
+    const { name, email, license, category, expiry, contact, score, status, aadhaar, pan, bloodGroup, address, avatar, aadhaarFile, panFile, dlFile } = req.body;
 
     // Check unique license
     const driverExists = await Driver.findOne({ license: license.toUpperCase() });
@@ -71,15 +189,105 @@ router.post('/drivers', protect, async (req, res) => {
 
     const driver = await Driver.create({
       name,
-      license,
+      email,
+      license: license.toUpperCase(),
       category,
       expiry,
       contact,
       score: score || 100,
-      status: status || 'available'
+      status: status || 'available',
+      aadhaar,
+      pan: pan ? pan.toUpperCase() : undefined,
+      bloodGroup,
+      address,
+      avatar,
+      aadhaarFile,
+      panFile,
+      dlFile
     });
 
-    res.status(201).json({ success: true, data: driver });
+    await recalculateDriverScore(driver._id);
+    const updatedDriver = await Driver.findById(driver._id);
+    res.status(201).json({ success: true, data: updatedDriver });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   PUT /api/drivers/:id
+router.put('/drivers/:id', protect, async (req, res) => {
+  try {
+    const { name, email, license, category, expiry, contact, score, status, aadhaar, pan, bloodGroup, address, avatar, aadhaarFile, panFile, dlFile } = req.body;
+    const driver = await Driver.findById(req.params.id);
+
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    // 1. Check unique license if changed
+    if (license && license.toUpperCase() !== driver.license) {
+      const licenseExists = await Driver.findOne({ license: license.toUpperCase() });
+      if (licenseExists) {
+        return res.status(400).json({ success: false, message: `Driver with license ${license} already exists` });
+      }
+      driver.license = license.toUpperCase();
+    }
+
+    // 2. Validate status change rules
+    if (status && status !== driver.status) {
+      // Driver cannot be suspended or off duty if currently on trip
+      if (driver.status === 'on_trip' && (status === 'suspended' || status === 'off_duty')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Driver is currently on a trip. Complete or cancel the trip before changing status.' 
+        });
+      }
+      driver.status = status;
+    }
+
+    if (name) driver.name = name;
+    if (email !== undefined) driver.email = email;
+    if (category) driver.category = category;
+    if (expiry) driver.expiry = expiry;
+    if (contact) driver.contact = contact;
+    if (score !== undefined) driver.score = Number(score);
+    if (aadhaar !== undefined) driver.aadhaar = aadhaar;
+    if (pan !== undefined) driver.pan = pan ? pan.toUpperCase() : undefined;
+    if (bloodGroup !== undefined) driver.bloodGroup = bloodGroup;
+    if (address !== undefined) driver.address = address;
+    if (avatar !== undefined) driver.avatar = avatar;
+    if (aadhaarFile !== undefined) driver.aadhaarFile = aadhaarFile;
+    if (panFile !== undefined) driver.panFile = panFile;
+    if (dlFile !== undefined) driver.dlFile = dlFile;
+
+    await driver.save();
+    await recalculateDriverScore(driver._id);
+    const updatedDriver = await Driver.findById(driver._id);
+    res.json({ success: true, data: updatedDriver });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   DELETE /api/drivers/:id
+router.delete('/drivers/:id', protect, async (req, res) => {
+  try {
+    const driver = await Driver.findById(req.params.id);
+
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    // Block deletion if driver is currently on trip
+    if (driver.status === 'on_trip') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Driver is currently on a trip. Cannot delete an active driver.' 
+      });
+    }
+
+    await Driver.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Driver profile removed successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -175,6 +383,8 @@ router.post('/trips', protect, async (req, res) => {
       await driver.save();
     }
 
+    await recalculateDriverScore(driverId);
+
     const populatedTrip = await Trip.findById(trip._id).populate('vehicle').populate('driver');
     res.status(201).json({ success: true, data: populatedTrip });
   } catch (err) {
@@ -227,6 +437,10 @@ router.put('/trips/:id/status', protect, async (req, res) => {
     if (newStatus === 'cancelled' && oldStatus === 'dispatched') {
       if (vehicle) { vehicle.status = 'available'; await vehicle.save(); }
       if (driver) { driver.status = 'available'; await driver.save(); }
+    }
+
+    if (driver) {
+      await recalculateDriverScore(driver._id);
     }
 
     const populatedTrip = await Trip.findById(trip._id).populate('vehicle').populate('driver');
