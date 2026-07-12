@@ -1,1 +1,17 @@
-.vercel
+# Dependency folders
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+frontend/dist/
+
+# Local env files
+.env
+backend/.env
+frontend/.env
+
+# OS files
+.DS_Store
+Thumds.db
